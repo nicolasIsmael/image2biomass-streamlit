@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Herramientas de desarrollo asistido (Spec Kit / skills) -- no forman parte del
+# producto y no deben subirse al repositorio público.
+.claude/
+.specify/
+specs/
+
+# Config local con credenciales/valores reales (usar .env.example como plantilla)
+.env
+
+# Checkpoints de modelo: se alojan en Hugging Face Hub, no en este repo
+*.pt
+*.pth
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
