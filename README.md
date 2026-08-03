@@ -1,12 +1,4 @@
-# Image2Biomass — Recorrido de Sustentación
-
-App Streamlit que acompaña la sustentación de una tesis de pregrado: evaluación
-comparativa de arquitecturas de Deep Learning (CNN, Transformer e Híbridas) para
-estimación multisalida de biomasa de pasturas a partir de imágenes top-view (dataset
-CSIRO Image2Biomass, Liao et al., Kaggle 2025).
-
-Es un recorrido guiado — no un dashboard técnico — pensado para un jurado sin
-formación en Deep Learning.
+# Image2Biomass
 
 ## Setup rápido
 
@@ -45,10 +37,3 @@ python tests/ci/smoke_test.py   # arranca la app real y verifica que responde
 - `services/` — carga de datos/modelos, inferencia, validación de imágenes.
 - `data/` — artefactos versionados (CSVs + imágenes de ejemplo); los checkpoints van en
   Hugging Face Hub, no aquí.
-
-## Nota sobre el repositorio
-
-Este repositorio contiene únicamente el código de la aplicación. Las carpetas de
-herramientas de desarrollo asistido usadas para planificar y generar este proyecto
-(`.claude/`, `.specify/`, `specs/`) están excluidas vía `.gitignore` y no se suben —
-no forman parte del producto ni son necesarias para ejecutarlo.
