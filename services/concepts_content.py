@@ -108,11 +108,12 @@ CONCEPTS: list[DLConcept] = [
         ),
         control_type="select",
         control_label="Variable objetivo a estimar (ejemplo)",
-        control_options=("Green", "Clover"),
+        control_options=("Green", "Clover", "Dead"),
         real_project_binding=(
-            "Es multisalida: una sola cabeza produce varios valores de biomasa a la "
-            "vez. Green y Clover son dos de las variables objetivo reales de este "
-            "estudio; la lista completa se muestra en la sección de Dataset."
+            "Es multisalida: una sola cabeza produce las 3 variables reales del "
+            "modelo (Green, Clover, Dead) en una sola pasada; Total y GDM se "
+            "derivan de esas 3. La lista completa de variables del dataset se "
+            "muestra en la sección de Dataset."
         ),
     ),
 ]
