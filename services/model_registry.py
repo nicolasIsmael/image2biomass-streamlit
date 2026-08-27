@@ -20,6 +20,23 @@ from huggingface_hub import hf_hub_download
 
 from services.config import load_config
 
+# Cabeza MLP idéntica usada para las 6 arquitecturas comparadas en el estudio
+# (backbone congelado + Linear-ReLU-Dropout-Linear). Debe coincidir exactamente con
+# src/models/factory.py del pipeline de entrenamiento para que los `state_dict`
+# publicados carguen con `strict=True`.
+_HEAD_HIDDEN_SIZE = 128
+_HEAD_DROPOUT = 0.3
+
+
+class BiomassModel(torch.nn.Module):
+    def __init__(self, backbone: torch.nn.Module, head: torch.nn.Module):
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.head(self.backbone(x))
+
 
 class ModelLoadError(Exception):
     """Error manejable al descargar o reconstruir un checkpoint (FR-016)."""
@@ -33,6 +50,8 @@ class LoadedModel:
     normalization_mean: tuple[float, float, float]
     normalization_std: tuple[float, float, float]
     output_targets: list[str]
+    target_scaler_mean: tuple[float, ...]
+    target_scaler_std: tuple[float, ...]
 
 
 def _resolve_ttl_seconds() -> int:
@@ -66,11 +85,16 @@ def _build_model(architecture_id: str, checkpoint_path: str, metadata_path: str)
         metadata = json.load(f)
 
     try:
-        model = timm.create_model(
-            metadata["timm_model_name"],
-            pretrained=False,
-            num_classes=len(metadata["output_targets"]),
+        backbone = timm.create_model(
+            metadata["timm_model_name"], pretrained=False, num_classes=0
         )
+        head = torch.nn.Sequential(
+            torch.nn.Linear(backbone.num_features, _HEAD_HIDDEN_SIZE),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=_HEAD_DROPOUT),
+            torch.nn.Linear(_HEAD_HIDDEN_SIZE, len(metadata["output_targets"])),
+        )
+        model = BiomassModel(backbone, head)
         state_dict = torch.load(checkpoint_path, map_location="cpu")
         model.load_state_dict(state_dict)
         model.eval()
@@ -86,4 +110,6 @@ def _build_model(architecture_id: str, checkpoint_path: str, metadata_path: str)
         normalization_mean=tuple(metadata["normalization_mean"]),
         normalization_std=tuple(metadata["normalization_std"]),
         output_targets=metadata["output_targets"],
+        target_scaler_mean=tuple(metadata["target_scaler_mean"]),
+        target_scaler_std=tuple(metadata["target_scaler_std"]),
     )

@@ -10,7 +10,9 @@ def test_missing_file_is_not_available(tmp_path):
 
 def test_empty_file_is_not_available(tmp_path):
     csv_path = tmp_path / "empty.csv"
-    csv_path.write_text("sample_id,image_path,latitude,longitude\n")
+    csv_path.write_text(
+        "sample_id,image_path,Sampling_Date,State,Species,Pre_GSHH_NDVI,Height_Ave_cm\n"
+    )
 
     result = load_dataset(str(csv_path))
 
@@ -31,9 +33,10 @@ def test_missing_required_columns_is_not_available(tmp_path):
 def test_valid_csv_is_available_and_extracts_target_columns(tmp_path):
     csv_path = tmp_path / "valid.csv"
     csv_path.write_text(
-        "sample_id,image_path,latitude,longitude,green_g,clover_g\n"
-        "A1,img/a1.jpg,-33.1,151.2,120.5,15.0\n"
-        "A2,img/a2.jpg,-33.2,151.3,98.0,4.2\n"
+        "sample_id,image_path,Sampling_Date,State,Species,Pre_GSHH_NDVI,"
+        "Height_Ave_cm,green_g,clover_g\n"
+        "A1,img/a1.jpg,2015/9/4,Tas,Ryegrass,0.62,4.6,120.5,15.0\n"
+        "A2,img/a2.jpg,2015/9/1,WA,Lucerne,0.55,16.0,98.0,4.2\n"
     )
 
     result = load_dataset(str(csv_path))

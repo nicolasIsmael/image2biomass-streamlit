@@ -14,7 +14,15 @@ import pandas as pd
 import streamlit as st
 
 DATASET_CSV_PATH = Path("data/dataset_metadata.csv")
-METADATA_COLUMNS = {"sample_id", "image_path", "latitude", "longitude"}
+METADATA_COLUMNS = {
+    "sample_id",
+    "image_path",
+    "Sampling_Date",
+    "State",
+    "Species",
+    "Pre_GSHH_NDVI",
+    "Height_Ave_cm",
+}
 
 
 @dataclass

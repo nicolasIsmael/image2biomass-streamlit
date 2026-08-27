@@ -1,0 +1,2 @@
+test_name,p_value,is_significant,plain_language_summary,best_architecture_id,worst_architecture_id
+"ANOVA (ómnibus, 6 arquitecturas) + post-hoc Mann-Whitney U (ConvNeXt-Tiny vs ResNet50)",0.0079,True,"El ANOVA global (p=0.0041) mostró diferencias estadísticamente significativas de Weighted R² entre las 6 arquitecturas comparadas (5-Fold CV). En el análisis post-hoc por pares (Mann-Whitney U), la diferencia específica entre ConvNeXt-Tiny (mejor desempeño) y ResNet50 (peor desempeño) también resultó significativa (p=0.0079): no se explica por azar.",convnext_tiny,resnet50

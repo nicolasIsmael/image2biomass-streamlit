@@ -13,7 +13,7 @@ import streamlit as st
 
 
 def render(fig) -> None:
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def histogram(df: pd.DataFrame, column: str, title: str, nbins: int = 20):

@@ -5,19 +5,26 @@ Ver el contrato completo en
 Los checkpoints de modelo **no** van aquí — se alojan en Hugging Face Hub (ver
 `.env.example` → `HF_REPO_ID`).
 
-## `dataset_metadata.csv` (pendiente)
+## `dataset_metadata.csv`
 
-Una fila por muestra del dataset (357 filas esperadas). Columnas requeridas:
+Una fila por muestra del dataset (357 filas, derivadas de `train.csv` del artefacto
+Kaggle CSIRO Image2Biomass — `test.csv` se descarta porque no trae mediciones reales,
+solo la imagen). Columnas:
 
-- `sample_id` — identificador único de la muestra.
-- `image_path` — ruta relativa a la imagen top-view.
-- `latitude`, `longitude` — ubicación geográfica de la muestra.
-- Una columna por cada variable objetivo real del estudio (ej. componentes de
-  biomasa como Green, Clover, Dead — nombres exactos a confirmar contra el
-  artefacto real del pipeline de entrenamiento).
+- `sample_id` — identificador único de la muestra (stem del nombre de archivo).
+- `image_path` — ruta relativa a la imagen top-view dentro del artefacto original
+  (`train/<sample_id>.jpg`); las imágenes en sí no se versionan en este repo (1.1 GB).
+- `Sampling_Date`, `State`, `Species`, `Pre_GSHH_NDVI`, `Height_Ave_cm` — metadata real
+  de la muestra. El dataset no incluye lat/long; `State` (estado australiano) es el
+  equivalente real de ubicación geográfica.
+- `Dry_Clover_g`, `Dry_Dead_g`, `Dry_Green_g`, `Dry_Total_g`, `GDM_g` — las 5 variables
+  objetivo reales del estudio (componentes de biomasa seca + biomasa verde
+  disponible/GDM), en formato ancho (una columna por variable; el CSV original de
+  Kaggle viene en formato largo, una fila por combinación muestra×variable).
 
-`services/dataset_loader.py` trata cualquier columna que no sea `sample_id`,
-`image_path`, `latitude` o `longitude` como variable objetivo automáticamente.
+`services/dataset_loader.py` trata cualquier columna que no sea metadata
+(`sample_id`, `image_path`, `Sampling_Date`, `State`, `Species`, `Pre_GSHH_NDVI`,
+`Height_Ave_cm`) como variable objetivo automáticamente.
 
 ## `fold_results.csv` (pendiente)
 
@@ -48,9 +55,21 @@ Una fila por comparación estadística reportada en el estudio. Columnas requeri
   con `fold_results.csv`) de mejor y peor desempeño; determinan los 2 checkpoints
   usados en la predicción en vivo (User Story 4).
 
-## `example_images/` (pendiente)
+## `dataset_thumbnails/`
 
-Ver `data/example_images/README.md`.
+Miniaturas JPEG comprimidas (320px de ancho, calidad 65) de las 357 imágenes reales
+de `train/`, una por `sample_id`, usadas por la galería de la página de dataset
+(`pages/2_dataset.py`). ~6 MB en total frente a los ~1.1 GB del artefacto original en
+resolución completa — por eso no se versiona el dataset de imágenes completo, solo
+estas miniaturas de exhibición. Generadas con un script puntual (no versionado) que
+redimensiona cada imagen de `train/` con Pillow; si el dataset original cambia, hay
+que regenerarlas.
+
+## `example_images/`
+
+Ver `data/example_images/README.md`. A diferencia de `dataset_thumbnails/`, estas 5
+imágenes se guardan en **resolución completa** porque alimentan la predicción en vivo
+(el modelo espera imágenes reales, no miniaturas).
 
 ---
 
