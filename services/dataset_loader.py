@@ -53,3 +53,35 @@ def load_dataset(csv_path: str = str(DATASET_CSV_PATH)) -> DatasetResult:
 
     target_columns = [c for c in df.columns if c not in METADATA_COLUMNS]
     return DatasetResult(available=True, samples=df, target_columns=target_columns)
+
+
+def species_component_counts(df: pd.DataFrame, top_n: int = 8) -> pd.DataFrame:
+    """Descompone `Species` (mezclas separadas por "_", ej. `Ryegrass_Clover`) en
+    especies individuales y cuenta apariciones reales de cada una -- una mezcla
+    aporta un conteo a cada especie que la compone, en vez de tratarse como una
+    categoría opaca más. Normaliza mayúsculas/minúsculas inconsistentes del dataset
+    original (ej. `Barleygrass` vs `BarleyGrass`) agrupándolas bajo la grafía más
+    frecuente. Las especies menos comunes se agrupan en "Otras especies (n)" para
+    mantener el gráfico legible.
+
+    Devuelve un DataFrame con columnas `Especie`, `count`, ordenado descendente.
+    """
+    parts = df["Species"].dropna().str.split("_").explode().str.strip()
+    frame = pd.DataFrame({"raw": parts, "key": parts.str.lower()})
+    canonical = frame.groupby("key")["raw"].agg(lambda s: s.value_counts().idxmax())
+    counts = frame.groupby("key").size()
+    result = (
+        pd.DataFrame({"Especie": canonical, "count": counts})
+        .reset_index(drop=True)
+        .sort_values("count", ascending=False, kind="stable")
+    )
+
+    if len(result) > top_n:
+        head = result.iloc[:top_n]
+        tail = result.iloc[top_n:]
+        other_row = pd.DataFrame(
+            {"Especie": [f"Otras especies ({len(tail)})"], "count": [tail["count"].sum()]}
+        )
+        result = pd.concat([head, other_row], ignore_index=True)
+
+    return result.reset_index(drop=True)
