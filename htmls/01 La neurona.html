@@ -1,0 +1,623 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>01 La neurona</title>
+<style>
+/* Escenario fijo 1280×720 escalado; visual a la izquierda, controles a la derecha */
+:root{
+  --fondo:#FAFAF7; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --verde:#2E7D32; --trebol:#8E4EC6; --muerta:#8D6E3F;
+  --panel:#FFFFFF; --panel-suave:#F2F3EE; --primario-suave:#DCE4FA;
+  --positivo-suave:#DDEFE3; --error-suave:#F8E0E0;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+    --verde:#66BB6A; --trebol:#B388F0; --muerta:#C49A63;
+    --panel:#18202F; --panel-suave:#1F2937; --primario-suave:#1E2B4D;
+    --positivo-suave:#153222; --error-suave:#3A1F25;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+  --verde:#66BB6A; --trebol:#B388F0; --muerta:#C49A63;
+  --panel:#18202F; --panel-suave:#1F2937; --primario-suave:#1E2B4D;
+  --positivo-suave:#153222; --error-suave:#3A1F25;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);color:var(--tinta)}
+#vista{position:fixed;inset:0;overflow:hidden;background:var(--fondo)}
+#escenario{
+  position:absolute;left:50%;top:50%;width:1280px;height:720px;box-sizing:border-box;
+  transform:translate(-50%,-50%);transform-origin:center center;
+  display:grid;grid-template-rows:72px 512px 88px;row-gap:12px;padding:12px 24px;
+  font-family:var(--sans);color:var(--tinta);
+}
+*,*::before,*::after{box-sizing:border-box}
+:focus-visible{outline:3px solid var(--alerta);outline-offset:2px}
+
+/* Franja superior */
+.cabecera{display:grid;grid-template-columns:auto 1fr;column-gap:16px;align-items:center}
+.num{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--primario);
+  border:2px solid var(--primario);border-radius:8px;width:56px;height:56px;display:grid;place-items:center}
+.cabecera h1{margin:0;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-0.01em}
+.cabecera p{margin:2px 0 0;font-size:16px;line-height:22px;color:var(--tinta-suave);white-space:nowrap}
+
+/* Zona central */
+.centro{display:grid;grid-template-columns:820px 388px;column-gap:24px;min-height:0}
+.visual{border:2px solid var(--linea);border-radius:8px;background:var(--panel);overflow:hidden}
+.visual svg{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.col-der{display:grid;grid-template-rows:250px 100px 138px;row-gap:12px}
+.tarjeta{border:2px solid var(--linea);border-radius:8px;background:var(--panel);padding:12px 14px}
+.etq{font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--tinta-suave)}
+.val{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;color:var(--tinta)}
+
+.controles{display:grid;grid-template-rows:auto auto auto auto;row-gap:10px;align-content:start}
+.ctl-cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--linea);border-radius:8px;overflow:hidden}
+.seg button{font:600 15px var(--sans);height:40px;border:0;background:var(--panel);color:var(--tinta);cursor:pointer}
+.seg button+button{border-left:2px solid var(--linea)}
+.seg button[aria-pressed="true"]{background:var(--primario);color:var(--panel)}
+.seg button:focus-visible{outline-offset:-4px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:32px;margin:0;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--linea)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-10px;border-radius:50%;background:var(--panel);border:3px solid var(--primario)}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--linea)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--panel);border:3px solid var(--primario)}
+.pista{margin:0;font-size:14px;line-height:18px;color:var(--tinta-suave)}
+.botones{display:grid;grid-template-columns:1.35fr 1fr 1.1fr;column-gap:8px}
+.btn{font:600 15px var(--sans);height:40px;padding:0 8px;border-radius:8px;border:2px solid var(--linea);
+  background:var(--panel);color:var(--tinta);cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--tinta-suave)}
+.btn.primario{background:var(--primario);border-color:var(--primario);color:var(--panel)}
+
+.observar p{margin:6px 0 0;font-size:16px;line-height:21px}
+.reto{display:grid;grid-template-rows:auto auto auto;row-gap:6px;align-content:start;transition:border-color 400ms,background 400ms}
+.reto p{margin:0;font-size:15px;line-height:20px}
+.reto-cab{display:flex;justify-content:space-between;align-items:center}
+.reto-cab .etq{color:var(--alerta)}
+.insignia{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--tinta-suave)}
+.insignia svg{width:24px;height:24px}
+.insignia .circ{fill:none;stroke:var(--linea);stroke-width:2}
+.insignia .chk{fill:none;stroke:var(--linea);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.reto.ok{border-color:var(--positivo);background:var(--positivo-suave)}
+.reto.ok .insignia{color:var(--positivo)}
+.reto.ok .insignia .circ{fill:var(--positivo);stroke:var(--positivo)}
+.reto.ok .insignia .chk{stroke:var(--panel)}
+.progreso{display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center}
+.barra{height:8px;border-radius:4px;background:var(--linea);overflow:hidden}
+.barra div{height:100%;width:0;background:var(--alerta);transition:width 300ms}
+.reto.ok .barra div{background:var(--positivo)}
+#txtReto{font-family:var(--mono);font-size:14px;color:var(--tinta-suave)}
+
+/* Franja inferior */
+.pie{display:grid;grid-template-columns:1fr 1fr;column-gap:24px;border-top:2px solid var(--linea);padding-top:10px}
+.pie p{margin:4px 0 0;font-size:15px;line-height:20px}
+
+/* SVG */
+.t14{font-size:14px;fill:var(--tinta-suave)}
+.t15{font-size:15px;fill:var(--tinta)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.grupo{transition:opacity 450ms}
+.grupo.tenue{opacity:0.15}
+.manija{cursor:ns-resize;outline:none}
+.manija .anillo{fill:none;stroke:var(--alerta);stroke-width:3;opacity:0}
+.manija:focus-visible .anillo{opacity:1}
+.entrada{cursor:ew-resize;outline:none}
+.entrada .anillo{fill:none;stroke:var(--alerta);stroke-width:3;opacity:0}
+.entrada:focus-visible .anillo{opacity:1}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div id="vista">
+<div id="escenario">
+  <header class="cabecera">
+    <div class="num" aria-hidden="true">01</div>
+    <div>
+      <h1>La neurona</h1>
+      <p>Una neurona suma sus entradas multiplicadas por pesos y decide qué tan fuerte se activa.</p>
+    </div>
+  </header>
+
+  <main class="centro">
+    <div class="visual">
+      <svg id="lienzo" viewBox="0 0 820 508" role="img" aria-label="Diagrama de una neurona con tres entradas, pesos, suma, activación y salida">
+        <defs>
+          <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" style="fill:var(--tinta-suave)"/>
+          </marker>
+          <clipPath id="recorteGraf"><rect x="250" y="392" width="360" height="80"/></clipPath>
+        </defs>
+        <!-- Fórmula (única) con números en vivo -->
+        <g id="gFormula">
+          <text x="20" y="28" class="t14 mono">salida = activación(w1·x1 + w2·x2 + w3·x3 + sesgo)</text>
+          <text id="formulaViva" x="20" y="52" class="t15 mono"></text>
+        </g>
+        <g id="gIn" class="grupo"></g>
+        <g id="gAr" class="grupo"></g>
+        <g id="gNe" class="grupo"></g>
+        <g id="gAc" class="grupo"></g>
+        <g id="gOut" class="grupo"></g>
+        <!-- Leyenda y etiqueta de ejemplo -->
+        <g id="gLeyenda">
+          <line x1="24" y1="392" x2="64" y2="392" style="stroke:var(--primario)" stroke-width="4" stroke-linecap="round"/>
+          <text x="74" y="397" class="t14">peso positivo</text>
+          <line x1="24" y1="418" x2="64" y2="418" style="stroke:var(--error)" stroke-width="4" stroke-dasharray="7 5"/>
+          <text x="74" y="423" class="t14">peso negativo</text>
+          <text x="24" y="449" class="t14">grosor de la arista = |peso|</text>
+          <rect x="20" y="464" width="164" height="28" rx="8" style="fill:var(--panel-suave);stroke:var(--alerta)" stroke-width="2"/>
+          <text x="102" y="483" text-anchor="middle" style="font-size:14px;font-weight:600;fill:var(--alerta)">Ejemplo ilustrativo</text>
+        </g>
+      </svg>
+    </div>
+
+    <section class="col-der">
+      <div class="tarjeta controles">
+        <div>
+          <div class="ctl-cab"><span class="etq" id="lblAct">Activación</span><span class="val" id="valAct">Escalón</span></div>
+          <div class="seg" role="group" aria-labelledby="lblAct">
+            <button type="button" id="actEscalon" data-act="escalon" aria-pressed="true">Escalón</button>
+            <button type="button" id="actRelu" data-act="relu" aria-pressed="false">ReLU</button>
+            <button type="button" id="actSigmoide" data-act="sigmoide" aria-pressed="false">Sigmoide</button>
+          </div>
+        </div>
+        <div>
+          <div class="ctl-cab"><label class="etq" for="sesgo">Sesgo (b)</label><output class="val" id="valSesgo" for="sesgo">−1.00</output></div>
+          <input type="range" id="sesgo" min="-3" max="3" step="0.1" value="-1" aria-label="Sesgo de la neurona">
+        </div>
+        <p class="pista">Pesos y entradas: arrastra las manijas y las barras del diagrama.</p>
+        <div class="botones">
+          <button type="button" id="btnPaso" class="btn primario">Paso a paso &#9654;&#xFE0E;</button>
+          <button type="button" id="btnReiniciar" class="btn">Reiniciar</button>
+          <button type="button" id="btnSorpresa" class="btn">Sorpréndeme</button>
+        </div>
+      </div>
+
+      <div class="tarjeta observar" aria-live="polite">
+        <div class="etq" id="lblObservar">Qué observar</div>
+        <p id="txtObservar"></p>
+      </div>
+
+      <div class="tarjeta reto" id="reto">
+        <div class="reto-cab">
+          <span class="etq">Reto</span>
+          <span class="insignia" aria-live="polite">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle class="circ" cx="12" cy="12" r="10"/><path class="chk" d="M7 12.5 L10.5 16 L17 8.5"/></svg>
+            <span id="txtInsignia">Pendiente</span>
+          </span>
+        </div>
+        <p>Ajusta los pesos para que la neurona diga SÍ solo con mucho verdor y poca humedad.</p>
+        <div class="progreso">
+          <div class="barra"><div id="barraReto"></div></div>
+          <span id="txtReto">0 de 48 casos</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div><span class="etq">Analogía en sistemas</span>
+      <p>Una fórmula de hoja de cálculo con un IF suave: cada entrada tiene un peso y el resultado pasa por una compuerta.</p></div>
+    <div><span class="etq">En el campo</span>
+      <p>Decidir si un cuadrante de pasto está listo para pastoreo a partir de tres señales: verdor, humedad y altura.</p></div>
+  </footer>
+</div>
+</div>
+
+<script>
+'use strict';
+/* ================= CONSTANTES ================= */
+const ENTRADAS = [
+  { nombre: 'Verdor', corto: 'verdor' },
+  { nombre: 'Humedad', corto: 'humedad' },
+  { nombre: 'Altura del pasto', corto: 'altura' }
+];
+const INICIAL = { x: [0.80, 0.30, 0.60], w: [1.20, 0.40, 0.80], b: -1.0, act: 'escalon' };
+const LIM = { wMin: -2, wMax: 2, bMin: -3, bMax: 3 };
+const UMBRAL = 0.5;          // la decisión es SÍ cuando la salida es ≥ 0.5
+const Z_VIS = 5;             // rango visible de z en la gráfica: [−5, 5]
+const SEMILLA = 2026;        // semilla fija para "Sorpréndeme"
+const DUR_MORPH = 600;       // ms de transición entre funciones de activación
+const G = {                  // geometría del SVG (coordenadas internas)
+  inX: 30, inW: 190, inH: 24, inYs: [130, 215, 300],
+  neur: { x: 480, y: 215, r: 62 },
+  out: { x: 660, y: 120, w: 48, h: 190 },
+  graf: { x: 250, y: 392, w: 360, h: 80 }
+};
+const ACT = {
+  escalon:  { nombre: 'Escalón',  f: z => (z >= 0 ? 1 : 0),        ymax: 1 },
+  relu:     { nombre: 'ReLU',     f: z => Math.max(0, z),          ymax: 3 },
+  sigmoide: { nombre: 'Sigmoide', f: z => 1 / (1 + Math.exp(-z)),  ymax: 1 }
+};
+const PASOS = [
+  'Llegan las tres entradas: cada señal es un número entre 0 y 1.',
+  'Cada entrada se multiplica por su peso: el grosor muestra su importancia.',
+  'Se suman los productos y se añade el sesgo: eso es z.',
+  'La activación convierte z en la salida: decide qué tan fuerte responde.'
+];
+// Reto: SÍ solo si verdor alto (≥ 0.8) y humedad baja (≤ 0.2), sin importar la altura
+const RETO = { x1: [0, 0.2, 0.8, 1], x2: [0, 0.2, 0.8, 1], x3: [0, 0.5, 1],
+  objetivo: (a, h) => a >= 0.8 && h <= 0.2 };
+const NS = 'http://www.w3.org/2000/svg';
+const reduceMov = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+/* ================= ESTADO ================= */
+let estado, prng;
+function estadoInicial() {
+  return { x: INICIAL.x.slice(), w: INICIAL.w.slice(), b: INICIAL.b, act: INICIAL.act,
+    mezcla: { de: INICIAL.act, a: INICIAL.act, t: 1 }, paso: 0 };
+}
+
+/* PRNG determinista (mulberry32) */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ================= UTILIDADES ================= */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fmt = n => (n < 0 ? '−' : '') + Math.abs(n).toFixed(2);
+function el(tag, attrs, padre) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) {
+    if (k === 'style') e.setAttribute('style', attrs[k]);
+    else if (k === 'text') e.textContent = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  if (padre) padre.appendChild(e);
+  return e;
+}
+function puntoSVG(ev) {
+  const svg = $('lienzo'); const p = svg.createSVGPoint();
+  p.x = ev.clientX; p.y = ev.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+/* ================= CÁLCULO REAL DE LA NEURONA ================= */
+function sumaZ(x, w, b) { return w[0] * x[0] + w[1] * x[1] + w[2] * x[2] + b; }
+// Activación visible (mezcla suave solo durante la transición entre funciones)
+function activarVisible(z) {
+  const m = estado.mezcla;
+  return (1 - m.t) * ACT[m.de].f(z) + m.t * ACT[m.a].f(z);
+}
+function ymaxVisible() {
+  const m = estado.mezcla;
+  return (1 - m.t) * ACT[m.de].ymax + m.t * ACT[m.a].ymax;
+}
+// Verificación del reto: prueba 48 combinaciones con la activación elegida
+function evaluarReto() {
+  const f = ACT[estado.act].f; let bien = 0, total = 0;
+  for (const a of RETO.x1) for (const h of RETO.x2) for (const t of RETO.x3) {
+    const si = f(sumaZ([a, h, t], estado.w, estado.b)) >= UMBRAL;
+    if (si === RETO.objetivo(a, h)) bien++;
+    total++;
+  }
+  return { bien, total };
+}
+
+/* ================= CONSTRUCCIÓN DEL DIAGRAMA ================= */
+const refs = { in: [], ar: [] };
+function construir() {
+  const gIn = $('gIn'), gAr = $('gAr'), gNe = $('gNe'), gAc = $('gAc'), gOut = $('gOut');
+  const { x: cx, y: cy, r } = G.neur;
+
+  // Aristas (se dibujan primero para quedar debajo)
+  G.inYs.forEach((y, i) => {
+    const sx = G.inX + G.inW + 12, sy = y;
+    const dx = sx - cx, dy = sy - cy, d = Math.hypot(dx, dy);
+    const ex = cx + dx / d * r, ey = cy + dy / d * r;
+    const linea = el('line', { x1: sx, y1: sy, x2: ex, y2: ey, 'stroke-linecap': 'round' }, gAr);
+    el('title', { text: '' }, linea);
+    const hx = sx + (ex - sx) * 0.42, hy = sy + (ey - sy) * 0.42;
+    const px = sx + (ex - sx) * 0.80, py = sy + (ey - sy) * 0.80;
+    const contrib = el('text', { x: px, y: py - 12, 'text-anchor': 'middle', class: 't14 mono' }, gAr);
+    const lblW = el('text', { x: hx, y: hy - 24, 'text-anchor': 'middle', class: 't15 mono', style: 'font-weight:600' }, gAr);
+    const man = el('g', { class: 'manija', tabindex: '0', role: 'slider',
+      'aria-label': 'Peso w' + (i + 1) + ' de ' + ENTRADAS[i].nombre,
+      'aria-valuemin': LIM.wMin, 'aria-valuemax': LIM.wMax, transform: `translate(${hx},${hy})` }, gAr);
+    el('circle', { r: 22, style: 'fill:transparent' }, man);
+    el('circle', { class: 'anillo', r: 19 }, man);
+    const bola = el('circle', { r: 13, 'stroke-width': 2.5, style: 'fill:var(--panel)' }, man);
+    const flechas = el('path', { d: 'M-4,-3 L0,-7 L4,-3 M-4,3 L0,7 L4,3', fill: 'none', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, man);
+    refs.ar.push({ linea, contrib, lblW, man, bola, flechas });
+    activarManija(man, i);
+  });
+
+  // Entradas como barras arrastrables
+  G.inYs.forEach((y, i) => {
+    const g = el('g', { class: 'entrada', tabindex: '0', role: 'slider',
+      'aria-label': 'Entrada x' + (i + 1) + ', ' + ENTRADAS[i].nombre,
+      'aria-valuemin': 0, 'aria-valuemax': 1 }, gIn);
+    el('rect', { x: G.inX - 6, y: y - 34, width: G.inW + 12, height: 52, style: 'fill:transparent' }, g);
+    el('rect', { class: 'anillo', x: G.inX - 5, y: y - 15, width: G.inW + 10, height: G.inH + 6, rx: 8 }, g);
+    el('text', { x: G.inX, y: y - 20, class: 't15', text: 'x' + (i + 1) + ' · ' + ENTRADAS[i].nombre }, g);
+    const val = el('text', { x: G.inX + G.inW, y: y - 20, 'text-anchor': 'end', class: 't15 mono', style: 'font-weight:600' }, g);
+    el('rect', { x: G.inX, y: y - 12, width: G.inW, height: G.inH, rx: 6, style: 'fill:var(--panel-suave);stroke:var(--linea)', 'stroke-width': 2 }, g);
+    const fill = el('rect', { x: G.inX + 2, y: y - 10, height: G.inH - 4, rx: 5, style: 'fill:var(--verde)' }, g);
+    // pequeñas marcas de escala (0, 0.5, 1) como segundo canal además del color
+    [0, 0.5, 1].forEach(v => el('line', { x1: G.inX + v * G.inW, y1: y + 13, x2: G.inX + v * G.inW, y2: y + 18, style: 'stroke:var(--tinta-suave)', 'stroke-width': 1.5 }, g));
+    refs.in.push({ g, val, fill });
+    activarEntrada(g, i);
+  });
+
+  // Neurona
+  el('circle', { cx, cy, r, 'stroke-width': 3, style: 'fill:var(--primario-suave);stroke:var(--primario)' }, gNe);
+  el('text', { x: cx, y: cy - 22, 'text-anchor': 'middle', class: 't14', text: 'Σ + sesgo = z' }, gNe);
+  refs.z = el('text', { x: cx, y: cy + 14, 'text-anchor': 'middle', class: 'mono', style: 'font-size:28px;font-weight:700;fill:var(--tinta)' }, gNe);
+  el('text', { x: cx, y: cy + 38, 'text-anchor': 'middle', class: 't14', text: 'neurona' }, gNe);
+
+  // Conexión neurona → salida, con el nombre de la activación
+  el('line', { x1: cx + r + 4, y1: cy, x2: G.out.x - 10, y2: cy, 'stroke-width': 2, 'marker-end': 'url(#flecha)', style: 'stroke:var(--tinta-suave)' }, gAc);
+  refs.actNombre = el('text', { x: (cx + r + G.out.x) / 2, y: cy - 12, 'text-anchor': 'middle', class: 't15', style: 'font-weight:600' }, gAc);
+
+  // Gráfica de la función de activación
+  const gr = G.graf;
+  refs.grafTitulo = el('text', { x: gr.x, y: gr.y - 10, class: 't15', style: 'font-weight:600' }, gAc);
+  el('rect', { x: gr.x, y: gr.y, width: gr.w, height: gr.h, rx: 4, style: 'fill:var(--panel-suave);stroke:var(--linea)', 'stroke-width': 1.5 }, gAc);
+  el('line', { x1: gr.x + gr.w / 2, y1: gr.y, x2: gr.x + gr.w / 2, y2: gr.y + gr.h, 'stroke-dasharray': '3 4', style: 'stroke:var(--linea)', 'stroke-width': 1.5 }, gAc);
+  refs.grafUmbral = el('line', { x1: gr.x, x2: gr.x + gr.w, 'stroke-dasharray': '6 5', style: 'stroke:var(--alerta)', 'stroke-width': 1.5 }, gAc);
+  refs.curva = el('path', { fill: 'none', 'stroke-width': 3, 'stroke-linejoin': 'round', 'clip-path': 'url(#recorteGraf)', style: 'stroke:var(--primario)' }, gAc);
+  refs.marcaZ = el('line', { y1: gr.y, y2: gr.y + gr.h, 'stroke-width': 1.5, style: 'stroke:var(--tinta-suave)' }, gAc);
+  refs.punto = el('circle', { r: 7, 'stroke-width': 2.5, style: 'fill:var(--panel);stroke:var(--alerta)' }, gAc);
+  [[-5, '−5'], [0, '0'], [5, '5']].forEach(([v, t]) =>
+    el('text', { x: gr.x + (v + Z_VIS) / (2 * Z_VIS) * gr.w, y: gr.y + gr.h + 18, 'text-anchor': 'middle', class: 't14 mono', text: t }, gAc));
+  el('text', { x: gr.x + gr.w + 8, y: gr.y + gr.h + 4, class: 't14', text: 'z' }, gAc);
+  el('text', { x: gr.x - 6, y: gr.y + gr.h + 4, 'text-anchor': 'end', class: 't14 mono', text: '0' }, gAc);
+  refs.grafYmax = el('text', { x: gr.x - 6, y: gr.y + 12, 'text-anchor': 'end', class: 't14 mono' }, gAc);
+
+  // Barra de salida y decisión
+  const o = G.out;
+  el('text', { x: o.x + o.w / 2, y: o.y - 12, 'text-anchor': 'middle', class: 't15', style: 'font-weight:600', text: 'salida y' }, gOut);
+  el('rect', { x: o.x, y: o.y, width: o.w, height: o.h, rx: 6, 'stroke-width': 2, style: 'fill:var(--panel-suave);stroke:var(--linea)' }, gOut);
+  refs.outFill = el('rect', { x: o.x + 3, width: o.w - 6, rx: 4, style: 'fill:var(--primario)' }, gOut);
+  refs.outUmbral = el('line', { x1: o.x - 6, x2: o.x + o.w + 6, 'stroke-dasharray': '6 4', 'stroke-width': 2, style: 'stroke:var(--alerta)' }, gOut);
+  refs.outUmbralTxt = el('text', { x: o.x + o.w + 10, class: 't14', text: 'umbral 0.5' }, gOut);
+  refs.outYmax = el('text', { x: o.x + o.w + 10, y: o.y + 12, class: 't14 mono' }, gOut);
+  el('text', { x: o.x + o.w + 10, y: o.y + o.h + 4, class: 't14 mono', text: '0' }, gOut);
+  refs.outVal = el('text', { x: o.x + o.w / 2, y: o.y + o.h + 24, 'text-anchor': 'middle', class: 't15 mono', style: 'font-weight:600' }, gOut);
+  refs.pill = el('rect', { x: o.x + o.w / 2 - 44, y: o.y + o.h + 36, width: 88, height: 34, rx: 8, 'stroke-width': 2 }, gOut);
+  refs.pillTxt = el('text', { x: o.x + o.w / 2, y: o.y + o.h + 59, 'text-anchor': 'middle', style: 'font-size:17px;font-weight:700' }, gOut);
+  el('text', { x: o.x + o.w / 2, y: o.y + o.h + 90, 'text-anchor': 'middle', class: 't14', text: 'SÍ si y ≥ 0.5' }, gOut);
+}
+
+/* ================= INTERACCIÓN DIRECTA ================= */
+function activarEntrada(g, i) {
+  const fijar = ev => {
+    const p = puntoSVG(ev);
+    estado.x[i] = Math.round(clamp((p.x - G.inX) / G.inW, 0, 1) * 20) / 20;
+    render();
+  };
+  g.addEventListener('pointerdown', ev => { g.setPointerCapture(ev.pointerId); g.focus(); fijar(ev); ev.preventDefault(); });
+  g.addEventListener('pointermove', ev => { if (g.hasPointerCapture(ev.pointerId)) fijar(ev); });
+  g.addEventListener('keydown', ev => {
+    const pasos = { ArrowRight: 0.05, ArrowUp: 0.05, ArrowLeft: -0.05, ArrowDown: -0.05 };
+    if (ev.key in pasos) estado.x[i] = Math.round(clamp(estado.x[i] + pasos[ev.key], 0, 1) * 20) / 20;
+    else if (ev.key === 'Home') estado.x[i] = 0;
+    else if (ev.key === 'End') estado.x[i] = 1;
+    else return;
+    ev.preventDefault(); render();
+  });
+}
+function activarManija(man, i) {
+  let y0 = 0, w0 = 0;
+  man.addEventListener('pointerdown', ev => {
+    man.setPointerCapture(ev.pointerId); man.focus();
+    y0 = puntoSVG(ev).y; w0 = estado.w[i]; ev.preventDefault();
+  });
+  man.addEventListener('pointermove', ev => {
+    if (!man.hasPointerCapture(ev.pointerId)) return;
+    const dy = puntoSVG(ev).y - y0;
+    estado.w[i] = Math.round(clamp(w0 - dy / 45, LIM.wMin, LIM.wMax) * 20) / 20;
+    render();
+  });
+  man.addEventListener('keydown', ev => {
+    const pasos = { ArrowUp: 0.1, ArrowRight: 0.1, ArrowDown: -0.1, ArrowLeft: -0.1 };
+    if (ev.key in pasos) estado.w[i] = Math.round(clamp(estado.w[i] + pasos[ev.key], LIM.wMin, LIM.wMax) * 10) / 10;
+    else if (ev.key === 'Home') estado.w[i] = LIM.wMin;
+    else if (ev.key === 'End') estado.w[i] = LIM.wMax;
+    else return;
+    ev.preventDefault(); render();
+  });
+}
+
+/* ================= TEXTO "QUÉ OBSERVAR" (cambia con el estado) ================= */
+function textoObservar(z, y, retoOk) {
+  if (estado.paso > 0) return PASOS[estado.paso - 1];
+  if (retoOk) return 'Reto cumplido: el peso negativo de la humedad frena el SÍ.';
+  const act = estado.act;
+  const c = estado.w.map((w, i) => w * estado.x[i]);
+  const tot = c.reduce((s, v) => s + Math.abs(v), 0) + 1e-9;
+  const zUmbral = act === 'relu' ? UMBRAL : 0;
+  if (Math.abs(z - zUmbral) < 0.2) {
+    if (act === 'escalon') return 'Justo en el umbral: un toque mínimo cambia NO por SÍ, de golpe.';
+    if (act === 'sigmoide') return 'Cerca de z = 0 la sigmoide duda: la salida ronda 0.5.';
+    return 'Con ReLU la salida crece en línea recta con z.';
+  }
+  const iNeg = c.findIndex((v, i) => estado.w[i] < 0 && Math.abs(v) / tot > 0.25);
+  if (iNeg >= 0) return 'Peso negativo: más ' + ENTRADAS[iNeg].corto + ' empuja la decisión hacia NO.';
+  let iMax = 0; c.forEach((v, i) => { if (Math.abs(v) > Math.abs(c[iMax])) iMax = i; });
+  if (Math.abs(c[iMax]) / tot > 0.5)
+    return ENTRADAS[iMax].nombre + ' manda: aporta ' + Math.round(100 * Math.abs(c[iMax]) / tot) + '% de la suma ponderada.';
+  if (Math.abs(estado.b) >= 1.5)
+    return estado.b < 0 ? 'Sesgo muy negativo: la neurona exige entradas fuertes para activarse.'
+                        : 'Sesgo muy positivo: la neurona se activa casi con cualquier entrada.';
+  if (act === 'escalon') return 'Escalón: solo SÍ o NO. Prueba Sigmoide para ver una respuesta gradual.';
+  if (act === 'sigmoide') return 'Sigmoide: la salida ' + y.toFixed(2) + ' es un grado, no un sí/no brusco.';
+  return z < 0 ? 'ReLU apaga la neurona: una suma negativa da salida 0.' : 'ReLU deja pasar la suma positiva tal cual.';
+}
+
+/* ================= RENDER ================= */
+function render() {
+  const { x, w, b } = estado;
+  const z = sumaZ(x, w, b);
+  const y = activarVisible(z);
+  const ymax = ymaxVisible();
+  const nombreAct = estado.mezcla.t < 1 ? ACT[estado.mezcla.a].nombre : ACT[estado.act].nombre;
+
+  // Entradas
+  refs.in.forEach((r, i) => {
+    r.val.textContent = x[i].toFixed(2);
+    r.fill.setAttribute('width', Math.max(0, x[i] * (G.inW - 4)));
+    r.g.setAttribute('aria-valuenow', x[i]);
+    r.g.setAttribute('aria-valuetext', ENTRADAS[i].nombre + ' ' + x[i].toFixed(2));
+  });
+
+  // Aristas: grosor = |peso|, color + patrón = signo
+  refs.ar.forEach((r, i) => {
+    const wi = w[i], c = wi * x[i];
+    const casiCero = Math.abs(wi) < 0.05;
+    const color = casiCero ? 'var(--linea)' : (wi > 0 ? 'var(--primario)' : 'var(--error)');
+    r.linea.style.stroke = color;
+    r.linea.setAttribute('stroke-width', (1.5 + Math.abs(wi) * 4.5).toFixed(2));
+    r.linea.setAttribute('stroke-dasharray', wi < 0 ? '10 7' : 'none');
+    r.linea.firstChild.textContent = `w${i + 1} = ${fmt(wi)} · x${i + 1} = ${x[i].toFixed(2)} → ${fmt(c)}`;
+    r.bola.style.stroke = casiCero ? 'var(--tinta-suave)' : color;
+    r.flechas.style.stroke = casiCero ? 'var(--tinta-suave)' : color;
+    r.lblW.textContent = 'w' + (i + 1) + ' = ' + fmt(wi);
+    r.lblW.style.fill = casiCero ? 'var(--tinta-suave)' : color;
+    r.contrib.textContent = (c >= 0 ? '+' : '−') + Math.abs(c).toFixed(2);
+    r.man.setAttribute('aria-valuenow', wi);
+    r.man.setAttribute('aria-valuetext', 'peso ' + wi.toFixed(2));
+  });
+
+  // Neurona
+  refs.z.textContent = fmt(z);
+
+  // Fórmula en vivo
+  const term = (wi, xi, primero) => {
+    const s = (wi < 0 ? (primero ? '−' : ' − ') : (primero ? '' : ' + '));
+    const col = wi < 0 ? 'var(--error)' : 'var(--primario)';
+    return `${s}<tspan style="fill:${col};font-weight:600">${Math.abs(wi).toFixed(2)}</tspan>·${xi.toFixed(2)}`;
+  };
+  const sb = b < 0 ? ' − ' : ' + ';
+  $('formulaViva').innerHTML = '= ' + nombreAct + '(' + term(w[0], x[0], true) + term(w[1], x[1]) + term(w[2], x[2]) +
+    sb + Math.abs(b).toFixed(2) + ') = ' + nombreAct + '(' + fmt(z) + ') = <tspan style="font-weight:700">' + y.toFixed(2) + '</tspan>';
+
+  // Gráfica de activación
+  const gr = G.graf;
+  const gx = zz => gr.x + (zz + Z_VIS) / (2 * Z_VIS) * gr.w;
+  const gy = yy => gr.y + gr.h - (yy / ymax) * gr.h;
+  let d = '';
+  for (let k = 0; k <= 240; k++) {
+    const zz = -Z_VIS + (2 * Z_VIS) * k / 240;
+    d += (k ? 'L' : 'M') + gx(zz).toFixed(1) + ',' + Math.max(gr.y - 4, gy(activarVisible(zz))).toFixed(1);
+  }
+  refs.curva.setAttribute('d', d);
+  const zc = clamp(z, -Z_VIS, Z_VIS);
+  refs.marcaZ.setAttribute('x1', gx(zc)); refs.marcaZ.setAttribute('x2', gx(zc));
+  refs.punto.setAttribute('cx', gx(zc));
+  refs.punto.setAttribute('cy', clamp(gy(activarVisible(zc)), gr.y, gr.y + gr.h));
+  refs.grafUmbral.setAttribute('y1', gy(UMBRAL)); refs.grafUmbral.setAttribute('y2', gy(UMBRAL));
+  refs.grafTitulo.textContent = 'Función de activación: ' + nombreAct;
+  refs.grafYmax.textContent = Number.isInteger(Math.round(ymax * 10) / 10) ? Math.round(ymax) : ymax.toFixed(1);
+  refs.actNombre.textContent = nombreAct;
+
+  // Barra de salida
+  const o = G.out;
+  const frac = clamp(y / ymax, 0, 1);
+  const hFill = Math.max(0, frac * (o.h - 6));
+  refs.outFill.setAttribute('height', hFill);
+  refs.outFill.setAttribute('y', o.y + o.h - 3 - hFill);
+  const uy = o.y + o.h - (UMBRAL / ymax) * o.h;
+  refs.outUmbral.setAttribute('y1', uy); refs.outUmbral.setAttribute('y2', uy);
+  refs.outUmbralTxt.setAttribute('y', uy + 5);
+  refs.outYmax.textContent = refs.grafYmax.textContent;
+  refs.outYmax.style.opacity = Math.abs(uy - o.y) < 22 ? 0 : 1;
+  refs.outVal.textContent = 'y = ' + y.toFixed(2) + (y > ymax + 1e-9 ? '+' : '');
+  const si = y >= UMBRAL;
+  refs.pill.style.fill = si ? 'var(--positivo)' : 'var(--panel)';
+  refs.pill.style.stroke = si ? 'var(--positivo)' : 'var(--tinta-suave)';
+  refs.pillTxt.textContent = si ? 'SÍ' : 'NO';
+  refs.pillTxt.style.fill = si ? 'var(--panel)' : 'var(--tinta)';
+
+  // Controles de la columna derecha
+  $('valSesgo').textContent = fmt(b);
+  $('sesgo').value = b;
+  $('valAct').textContent = ACT[estado.act].nombre;
+  document.querySelectorAll('.seg button').forEach(bt => bt.setAttribute('aria-pressed', bt.dataset.act === estado.act));
+
+  // Reto (verificación automática)
+  const rr = evaluarReto();
+  const ok = rr.bien === rr.total;
+  $('reto').classList.toggle('ok', ok);
+  $('txtInsignia').textContent = ok ? 'Logrado' : 'Pendiente';
+  $('barraReto').style.width = (100 * rr.bien / rr.total) + '%';
+  $('txtReto').textContent = rr.bien + ' de ' + rr.total + ' casos';
+
+  // Paso a paso: atenúa lo que aún no ocurre
+  const vis = estado.paso === 0 ? 5 : estado.paso;
+  [['gIn', 1], ['gAr', 2], ['gNe', 3], ['gAc', 4], ['gOut', 4]].forEach(([id, n]) =>
+    $(id).classList.toggle('tenue', vis < n));
+  $('gFormula').classList.toggle('tenue', estado.paso > 0 && estado.paso < 3);
+  $('lblObservar').textContent = estado.paso > 0 ? 'Paso ' + estado.paso + ' de 4' : 'Qué observar';
+  $('txtObservar').textContent = textoObservar(z, y, ok);
+  const bp = $('btnPaso');
+  bp.innerHTML = estado.paso === 0 ? 'Paso a paso &#9654;&#xFE0E;' :
+    estado.paso < 4 ? 'Siguiente &#9654;&#xFE0E; ' + estado.paso + '/4' : 'Terminar';
+}
+
+/* ================= TRANSICIÓN ENTRE ACTIVACIONES ================= */
+let animId = 0;
+function cambiarActivacion(nueva) {
+  if (nueva === estado.act) return;
+  const previa = estado.mezcla.t < 1 ? estado.mezcla.a : estado.act;
+  estado.act = nueva;
+  cancelAnimationFrame(animId);
+  if (reduceMov.matches) { estado.mezcla = { de: nueva, a: nueva, t: 1 }; render(); return; }
+  estado.mezcla = { de: previa, a: nueva, t: 0 };
+  const t0 = performance.now();
+  const cuadro = ahora => {
+    const u = clamp((ahora - t0) / DUR_MORPH, 0, 1);
+    estado.mezcla.t = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2; // suavizado
+    render();
+    if (u < 1) animId = requestAnimationFrame(cuadro);
+  };
+  animId = requestAnimationFrame(cuadro);
+}
+
+/* ================= ESCALADO DEL ESCENARIO ================= */
+function ajustarEscala() {
+  const v = $('vista');
+  const s = Math.min(v.clientWidth / 1280, v.clientHeight / 720);
+  $('escenario').style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+
+/* ================= ARRANQUE ================= */
+function reiniciar() {
+  cancelAnimationFrame(animId);
+  estado = estadoInicial();
+  prng = mulberry32(SEMILLA);
+  render();
+}
+function iniciar() {
+  estado = estadoInicial();
+  prng = mulberry32(SEMILLA);
+  construir();
+  document.querySelectorAll('.seg button').forEach(bt =>
+    bt.addEventListener('click', () => cambiarActivacion(bt.dataset.act)));
+  $('sesgo').addEventListener('input', ev => {
+    estado.b = Math.round(clamp(parseFloat(ev.target.value), LIM.bMin, LIM.bMax) * 10) / 10; render();
+  });
+  $('btnPaso').addEventListener('click', () => { estado.paso = estado.paso >= 4 ? 0 : estado.paso + 1; render(); });
+  $('btnReiniciar').addEventListener('click', reiniciar);
+  $('btnSorpresa').addEventListener('click', () => {
+    estado.x = estado.x.map(() => Math.round(prng() * 20) / 20); render();
+  });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && estado.paso > 0) { estado.paso = 0; render(); } });
+  window.addEventListener('resize', ajustarEscala);
+  ajustarEscala();
+  render();
+}
+iniciar();
+</script>
+
+</body></html>

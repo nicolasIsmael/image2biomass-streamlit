@@ -1,0 +1,512 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>09 Transfer learning</title>
+<style>
+/* Escenario fijo 1280×720 escalado: franja superior, visual + panel, franja inferior */
+:root{
+  --fondo:#FAFAF7; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --verde:#2E7D32; --trebol:#8E4EC6; --muerta:#8D6E3F;
+  --superficie:#FFFFFF; --primario-suave:#DBEAFE; --congelada:#EEF0F2; --suelo:#E9E2D2;
+  --positivo-suave:#DCFCE7;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --positivo:#4ADE80; --alerta:#F59E0B; --error:#F87171;
+    --verde:#4CAF50; --trebol:#B07CE8; --muerta:#B08A58;
+    --superficie:#1F2937; --primario-suave:#1E3A5F; --congelada:#273244; --suelo:#3A3328;
+    --positivo-suave:#14532D; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --positivo:#4ADE80; --alerta:#F59E0B; --error:#F87171;
+  --verde:#4CAF50; --trebol:#B07CE8; --muerta:#B08A58;
+  --superficie:#1F2937; --primario-suave:#1E3A5F; --congelada:#273244; --suelo:#3A3328;
+  --positivo-suave:#14532D; color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.escenario{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;
+  display:grid;grid-template-rows:72px 500px 80px;row-gap:12px;padding:20px 24px 24px}
+/* Franja superior */
+.cabecera h1{margin:0;font-size:26px;font-weight:700;line-height:34px;letter-spacing:-0.01em}
+.cabecera h1 .num{font-family:var(--mono);color:var(--primario);margin-right:10px}
+.cabecera p{margin:4px 0 0;font-size:16px;line-height:24px;color:var(--tinta-suave);white-space:nowrap}
+/* Zona central */
+.centro{display:grid;grid-template-columns:820px 396px;column-gap:16px}
+.visual{position:relative;width:820px;height:500px;background:var(--superficie);border:2px solid var(--linea);border-radius:8px;overflow:hidden}
+.visual svg{display:block}
+.panel{display:grid;grid-template-rows:272px 90px 114px;row-gap:12px}
+.caja{background:var(--superficie);border:2px solid var(--linea);border-radius:8px;padding:12px 14px}
+.controles{display:grid;grid-template-rows:62px 62px 62px 40px;row-gap:6px;padding:12px 14px}
+.ctl-fila{display:flex;justify-content:space-between;align-items:baseline;height:22px;font-size:15px}
+.ctl-fila .valor{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--primario)}
+input[type=range]{width:100%;height:40px;margin:0;accent-color:var(--primario);cursor:pointer;background:transparent}
+input[type=range]:disabled{opacity:.4;cursor:not-allowed}
+.segmento{display:grid;grid-template-columns:1fr 1fr;height:40px;border:2px solid var(--linea);border-radius:8px;overflow:hidden}
+.segmento button{font:inherit;font-size:15px;border:0;background:transparent;color:var(--tinta);cursor:pointer}
+.segmento button+button{border-left:2px solid var(--linea)}
+.segmento button[aria-pressed="true"]{background:var(--primario);color:var(--superficie);font-weight:600}
+.botones{display:grid;grid-template-columns:1fr 1fr;column-gap:8px}
+.btn{font:inherit;font-size:15px;height:40px;min-width:40px;border-radius:8px;border:2px solid var(--linea);background:var(--superficie);color:var(--tinta);cursor:pointer;padding:0 12px}
+.btn.primario{border-color:var(--primario);color:var(--primario);font-weight:600}
+.btn:hover{border-color:var(--tinta-suave)}
+:focus-visible{outline:3px solid var(--alerta);outline-offset:2px}
+.titulo-caja{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);margin:0 0 4px}
+.observar p{margin:0;font-size:15px;line-height:21px}
+.reto,.paso{padding:10px 14px}
+.reto p{margin:0;font-size:15px;line-height:21px}
+.reto .estado{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:14px;color:var(--tinta-suave);font-family:var(--mono)}
+.reto.logrado{border-color:var(--positivo);background:var(--positivo-suave)}
+.reto.logrado .estado{color:var(--positivo);font-family:var(--sans);font-weight:700;font-size:15px}
+.paso p{margin:0;font-size:15px;line-height:21px;height:42px}
+.paso .contador{font-size:14px;font-family:var(--mono);color:var(--tinta-suave);align-self:center;white-space:nowrap}
+.paso .nav{display:grid;grid-template-columns:40px auto 1fr 64px;column-gap:8px;margin-top:8px}
+/* Franja inferior */
+.pie{display:grid;grid-template-columns:1fr 1fr;column-gap:16px}
+.pie div{font-size:15px;line-height:21px;border-top:2px solid var(--linea);padding-top:8px}
+.pie b{color:var(--tinta)}
+.pie span{color:var(--tinta-suave)}
+/* Capa superpuesta con la explicación del cálculo */
+.btn-info{position:absolute;top:8px;right:8px;height:40px;font-size:14px}
+.superpuesta{position:absolute;inset:0;background:var(--superficie);padding:24px 28px;display:flex;flex-direction:column;gap:10px}
+.superpuesta h2{margin:0;font-size:20px}
+.superpuesta p{margin:0;font-size:15px;line-height:22px;max-width:700px}
+.formula{font-family:var(--mono);font-size:16px;background:var(--fondo);border:2px solid var(--linea);border-radius:8px;padding:12px 14px;line-height:26px}
+.formula .vivo{color:var(--primario);font-weight:700}
+.superpuesta .cerrar{align-self:flex-start;margin-top:auto}
+/* SVG */
+svg text{font-family:var(--sans);fill:var(--tinta)}
+.t14{font-size:14px} .t15{font-size:15px} .suave{fill:var(--tinta-suave)}
+.mono{font-family:var(--mono)!important}
+.candado{cursor:pointer}
+.candado:focus{outline:none}
+.candado:focus-visible .anillo{stroke:var(--alerta);stroke-width:3}
+.candado[aria-disabled="true"]{cursor:default}
+.resalte{stroke:var(--alerta)!important;stroke-width:3!important;stroke-dasharray:8 5}
+</style>
+
+<div class="escenario" id="escenario">
+  <header class="cabecera">
+    <h1><span class="num">09</span>Transfer learning: no empezar de cero</h1>
+    <p>Reutilizar lo que una red ya aprendió con millones de imágenes y entrenar solo una parte nueva.</p>
+  </header>
+
+  <main class="centro">
+    <section class="visual" aria-label="Pila de capas de una red ya entrenada y barras de resultado">
+      <svg id="lienzo" width="816" height="496" viewBox="0 0 816 496" role="img" aria-label="Red de cinco capas con candados, cabeza nueva y dos barras"></svg>
+      <button class="btn btn-info" id="btnInfo" aria-haspopup="dialog">¿Cómo se calcula?</button>
+      <div class="superpuesta" id="capaInfo" role="dialog" aria-modal="true" aria-labelledby="infoTitulo" hidden>
+        <h2 id="infoTitulo">Cómo se calcula la calidad esperada</h2>
+        <p>Es un modelo de juguete con valores elegidos a mano. Muestra una tendencia, no resultados de ningún estudio.</p>
+        <div class="formula">calidad = ajuste(k) × (1 − e<sup>−n / datos_necesarios(k)</sup>)<br>
+          <span id="formulaViva" class="vivo"></span></div>
+        <p><b>ajuste(k)</b>: cuánto puede adaptarse la red si abres k capas. Más capas, más adaptación posible.</p>
+        <p><b>datos_necesarios(k)</b>: cuántas imágenes piden esas capas para no memorizar. Más capas abiertas, más datos.</p>
+        <p><b>Empezar de cero</b> usa la misma fórmula, pero necesita muchísimos más datos porque nada viene aprendido.</p>
+        <button class="btn primario cerrar" id="btnCerrarInfo">Cerrar (Esc)</button>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="caja controles">
+        <div>
+          <div class="ctl-fila"><label for="ctlCapas">Capas que reentreno</label><span class="valor" id="valCapas">0 de 5</span></div>
+          <input type="range" id="ctlCapas" min="0" max="5" step="1" value="0" aria-label="Cuántas capas reentreno, desde arriba">
+        </div>
+        <div>
+          <div class="ctl-fila"><label for="ctlImagenes">Imágenes que tengo</label><span class="valor" id="valImagenes">500</span></div>
+          <input type="range" id="ctlImagenes" min="0" max="12" step="1" value="6" aria-label="Cuántas imágenes tengo, escala logarítmica de 50 a 5000">
+        </div>
+        <div>
+          <div class="ctl-fila"><span id="lblModo">Punto de partida</span></div>
+          <div class="segmento" role="group" aria-labelledby="lblModo">
+            <button id="btnCero" aria-pressed="false">Empezar de cero</button>
+            <button id="btnReusar" aria-pressed="true">Reutilizar lo aprendido</button>
+          </div>
+        </div>
+        <div class="botones">
+          <button class="btn primario" id="btnPasos">Paso a paso ▶</button>
+          <button class="btn" id="btnReiniciar">Reiniciar</button>
+        </div>
+      </div>
+
+      <div class="caja observar" aria-live="polite">
+        <div class="titulo-caja">Qué observar</div>
+        <p id="txtObservar"></p>
+      </div>
+
+      <div class="caja reto" id="cajaReto">
+        <div class="titulo-caja">Reto</div>
+        <p>Con 100 imágenes, elige cuántas capas reentrenar para maximizar la calidad esperada.</p>
+        <div class="estado" id="retoEstado" aria-live="polite">
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle id="retoCirculo" cx="11" cy="11" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path id="retoCheck" d="M6 11.5l3.4 3.4L16 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" hidden/></svg>
+          <span id="retoTexto"></span>
+        </div>
+      </div>
+
+      <div class="caja paso" id="cajaPaso" hidden>
+        <p id="pasoTexto"></p>
+        <div class="nav">
+          <button class="btn" id="btnAnterior" aria-label="Paso anterior">◀</button>
+          <span class="contador" id="pasoTitulo">Paso 1/4</span>
+          <button class="btn primario" id="btnSiguiente">Siguiente ▶</button>
+          <button class="btn" id="btnSalir">Salir</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="pie">
+    <div><b>Analogía en sistemas.</b> <span>Como heredar una clase base madura y sobrescribir solo el método que cambia. No reescribes la biblioteca: la importas.</span></div>
+    <div><b>En el campo.</b> <span>Una red que aprendió a reconocer objetos cotidianos ya ve bordes y texturas. Eso también sirve para leer un cuadrante de pasto.</span></div>
+  </footer>
+</div>
+
+<script>
+/* ================= CONSTANTES ================= */
+// Cantidades de imágenes disponibles en el deslizador (escala logarítmica aproximada)
+const N_IMAGENES = [50, 75, 100, 150, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 5000];
+// Modelo cualitativo de juguete (valores elegidos a mano, solo para mostrar la tendencia)
+// índice = k = cuántas capas reentreno contando desde arriba (0 = solo la cabeza)
+const AJUSTE = [0.60, 0.70, 0.80, 0.87, 0.92, 0.95];
+const DATOS_NECESARIOS = [25, 45, 300, 900, 2000, 3500];
+const DESDE_CERO = { ajuste: 0.95, datos: 9000 };
+// Parámetros por capa en millones (ejemplo ilustrativo); índice 0 = capa 1 (abajo)
+const PARAMS_CAPA = [0.1, 0.4, 1.2, 2.5, 4.8];
+const PARAMS_CABEZA = 0.05;
+const PARAMS_TOTAL = PARAMS_CAPA.reduce((a, b) => a + b, 0) + PARAMS_CABEZA;
+const CAPAS = [
+  { nombre: "Bordes y colores", sub: "0.1 M parámetros" },
+  { nombre: "Texturas", sub: "0.4 M parámetros" },
+  { nombre: "Formas simples", sub: "1.2 M parámetros" },
+  { nombre: "Partes de objetos", sub: "2.5 M parámetros" },
+  { nombre: "Objetos completos", sub: "tarea original · 4.8 M" }
+];
+// Geometría del SVG (coordenadas del visual 820×500)
+const G = { pilaX: 40, pilaW: 410, capaH: 50, capaGap: 6, capaY0: 126, cabezaY: 54, cabezaH: 56,
+            flechaX: 472, barBase: 372, barAlto: 256, bar1X: 560, bar2X: 690, barW: 80 };
+const PASOS = [
+  { txt: "La red original aprendió cosas generales viendo millones de imágenes.", modo: "reutilizar", k: 0, n: 6, resaltar: [1,2,3,4,5] },
+  { txt: "Las primeras capas, bordes, texturas y formas, sirven para casi cualquier foto.", modo: "reutilizar", k: 0, n: 6, resaltar: [1,2,3] },
+  { txt: "Congelamos esas capas y entrenamos solo la cabeza nueva con nuestras imágenes.", modo: "reutilizar", k: 0, n: 2, resaltar: ["cabeza"] },
+  { txt: "Con más imágenes conviene abrir más candados y reentrenar más capas.", modo: "reutilizar", k: 3, n: 11, resaltar: [3,4,5] }
+];
+const SEMILLA = 909;
+const MOV_REDUCIDO = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ================= ESTADO ================= */
+const INICIAL = { modo: "reutilizar", k: 0, nIdx: 6, resuelto: false, paso: -1 };
+let est = { ...INICIAL };
+
+/* ================= MODELO ================= */
+function calidad(k, n) { return AJUSTE[k] * (1 - Math.exp(-n / DATOS_NECESARIOS[k])); }
+function calidadCero(n) { return DESDE_CERO.ajuste * (1 - Math.exp(-n / DESDE_CERO.datos)); }
+function mejorK(n) { let b = 0; for (let k = 1; k < 6; k++) if (calidad(k, n) > calidad(b, n)) b = k; return b; }
+function paramsEntrenables() {
+  if (est.modo === "cero") return PARAMS_TOTAL;
+  let p = PARAMS_CABEZA; for (let i = 0; i < est.k; i++) p += PARAMS_CAPA[4 - i]; return p;
+}
+// Una capa i (1..5) se reentrena si está entre las k de arriba, o si empezamos de cero
+function capaAbierta(i) { return est.modo === "cero" || i > 5 - est.k; }
+
+/* ================= PRNG Y UTILIDADES SVG ================= */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, padre) { const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]); if (padre) padre.appendChild(e); return e; }
+function texto(str, attrs, padre) { const t = el("text", attrs, padre); t.textContent = str; return t; }
+
+/* Cuadrante de pasto procedural 7:3, parametrizable por tres fracciones */
+function dibujarCuadrante(padre, x, y, w, h, fr, semilla) {
+  const r = mulberry32(semilla);
+  const id = "clipCuad" + semilla;
+  const clip = el("clipPath", { id }, padre); el("rect", { x, y, width: w, height: h, rx: 8 }, clip);
+  const g = el("g", { "clip-path": `url(#${id})` }, padre);
+  el("rect", { x, y, width: w, height: h, style: "fill:var(--suelo)" }, g);
+  for (let i = 0; i < 170; i++) {
+    const u = r(), px = x + r() * w, py = y + 10 + r() * (h - 4);
+    if (u < fr.verde) {
+      const len = 14 + r() * 22, dx = (r() - 0.5) * 14;
+      el("path", { d: `M${px} ${py} Q${px + dx * 0.3} ${py - len * 0.6} ${px + dx} ${py - len}`,
+        style: "fill:none;stroke:var(--verde);stroke-width:1.6;stroke-linecap:round" }, g);
+    } else if (u < fr.verde + fr.trebol) {
+      for (let j = 0; j < 3; j++) { const a = j * 2.094 + r();
+        el("circle", { cx: px + Math.cos(a) * 2.6, cy: py - 4 + Math.sin(a) * 2.6, r: 2.4, style: "fill:var(--trebol)" }, g); }
+    } else {
+      const len = 8 + r() * 14, dx = (r() - 0.5) * 22;
+      el("path", { d: `M${px} ${py} Q${px + dx} ${py - len * 0.3} ${px + dx * 1.2} ${py - len * 0.5}`,
+        style: "fill:none;stroke:var(--muerta);stroke-width:1.8;stroke-linecap:round" }, g);
+    }
+  }
+  el("rect", { x, y, width: w, height: h, rx: 8, style: "fill:none;stroke:var(--linea);stroke-width:2" }, padre);
+}
+
+/* Iconos de lo que detecta cada capa (dibujados en una caja 46×36 centrada en cx,cy) */
+function icono(padre, i, cx, cy) {
+  const g = el("g", { style: "fill:none;stroke:var(--tinta);stroke-width:2;stroke-linecap:round;stroke-linejoin:round" }, padre);
+  if (i === 1) { el("path", { d: `M${cx-20} ${cy+10} L${cx-8} ${cy-10} M${cx-6} ${cy+10} L${cx+4} ${cy-10}` }, g);
+    el("rect", { x: cx + 8, y: cy - 12, width: 10, height: 10, rx: 2, style: "fill:var(--alerta);stroke:none" }, g);
+    el("rect", { x: cx + 8, y: cy + 2, width: 10, height: 10, rx: 2, style: "fill:var(--primario);stroke:none" }, g); }
+  if (i === 2) { for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++)
+      el("circle", { cx: cx - 16 + a * 7, cy: cy - 8 + b * 8, r: 1.6, style: "fill:var(--tinta);stroke:none" }, g);
+    el("path", { d: `M${cx+2} ${cy+10} l10 -20 M${cx+8} ${cy+10} l10 -20 M${cx+14} ${cy+10} l7 -14` }, g); }
+  if (i === 3) { el("circle", { cx: cx - 15, cy, r: 7 }, g);
+    el("path", { d: `M${cx-4} ${cy+7} l7 -14 l7 14 z` }, g);
+    el("rect", { x: cx + 12, y: cy - 7, width: 12, height: 14, rx: 1 }, g); }
+  if (i === 4) { el("circle", { cx: cx - 11, cy, r: 10 }, g);
+    el("path", { d: `M${cx-11} ${cy-10} v20 M${cx-21} ${cy} h20` }, g);
+    el("path", { d: `M${cx+4} ${cy+10} C${cx+4} ${cy-6} ${cx+16} ${cy-12} ${cx+22} ${cy-12} C${cx+22} ${cy} ${cx+14} ${cy+10} ${cx+4} ${cy+10} Z` }, g); }
+  if (i === 5) { el("path", { d: `M${cx-22} ${cy-8} h16 v12 a5 5 0 0 1 -5 5 h-6 a5 5 0 0 1 -5 -5 z M${cx-6} ${cy-4} a4 4 0 0 1 0 8` }, g);
+    el("path", { d: `M${cx+6} ${cy-12} v24 M${cx+6} ${cy+2} h14 v10 M${cx+6} ${cy+2} h14 v-4` }, g); }
+  return g;
+}
+/* Ruido gris: la capa no sabe nada (pesos al azar) */
+function ruido(padre, cx, cy, semilla) {
+  const r = mulberry32(semilla), g = el("g", {}, padre);
+  for (let j = 0; j < 14; j++) el("rect", { x: cx - 22 + r() * 40, y: cy - 14 + r() * 26, width: 3 + r() * 4, height: 3 + r() * 4,
+    style: "fill:var(--tinta-suave)" }, g);
+  return g;
+}
+/* Candado: cerrado = congelada, abierto = se reentrena */
+function candado(padre, cx, cy) {
+  const g = el("g", { class: "candado", tabindex: "0", role: "button" }, padre);
+  el("rect", { x: cx - 20, y: cy - 20, width: 40, height: 40, rx: 8, class: "anillo", style: "fill:var(--superficie);stroke:var(--linea);stroke-width:2" }, g);
+  const arco = el("path", { style: "fill:none;stroke:var(--tinta);stroke-width:2.5;stroke-linecap:round" }, g);
+  const cuerpo = el("rect", { x: cx - 9, y: cy - 2, width: 18, height: 13, rx: 3, style: "fill:var(--tinta)" }, g);
+  return { g, arco, cuerpo, cx, cy };
+}
+function pintarCandado(c, abierto) {
+  const { cx, cy } = c;
+  // Abierto: el arco sube y se desplaza a la izquierda, con la pata derecha suelta
+  c.arco.setAttribute("d", abierto ? `M${cx-10} ${cy-5} V${cy-11} a6 6 0 0 1 12 0 V${cy-9}`
+                                   : `M${cx-6} ${cy-2} V${cy-7} a6 6 0 0 1 12 0 V${cy-2}`);
+  c.cuerpo.style.fill = abierto ? "var(--primario)" : "var(--tinta)";
+}
+
+/* ================= CONSTRUCCIÓN DEL SVG ================= */
+const svg = document.getElementById("lienzo");
+const defs = el("defs", {}, svg);
+const pat = el("pattern", { id: "rayado", width: 8, height: 8, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+el("line", { x1: 0, y1: 0, x2: 0, y2: 8, style: "stroke:var(--linea);stroke-width:2" }, pat);
+const mk = el("marker", { id: "punta", viewBox: "0 0 10 10", refX: 5, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" }, defs);
+el("path", { d: "M0 0 L10 5 L0 10 z", style: "fill:var(--primario)" }, mk);
+const mk2 = el("marker", { id: "puntaGris", viewBox: "0 0 10 10", refX: 5, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" }, defs);
+el("path", { d: "M0 0 L10 5 L0 10 z", style: "fill:var(--tinta-suave)" }, mk2);
+
+texto("La imagen entra abajo y sube capa por capa", { x: G.pilaX, y: 32, class: "t14 suave" }, svg);
+// Flecha de los datos hacia arriba (lado izquierdo)
+el("line", { x1: 20, y1: 460, x2: 20, y2: 64, style: "stroke:var(--tinta-suave);stroke-width:2", "marker-end": "url(#puntaGris)" }, svg);
+
+// Cabeza nueva
+const cabeza = el("g", {}, svg);
+const cabezaRect = el("rect", { x: G.pilaX, y: G.cabezaY, width: G.pilaW, height: G.cabezaH, rx: 8,
+  style: "fill:var(--primario-suave);stroke:var(--primario);stroke-width:2" }, cabeza);
+el("title", {}, cabeza).textContent = "Cabeza nueva: pocas neuronas para tu problema. Siempre se entrena.";
+texto("Cabeza nueva: tu problema", { x: G.pilaX + 16, y: G.cabezaY + 24, class: "t15", "font-weight": 700 }, cabeza);
+texto("p. ej., gramos de biomasa · 0.05 M parámetros", { x: G.pilaX + 16, y: G.cabezaY + 43, class: "t14 suave" }, cabeza);
+texto("siempre se entrena", { x: G.pilaX + G.pilaW - 16, y: G.cabezaY + 24, class: "t14", "text-anchor": "end", style: "fill:var(--primario)" }, cabeza);
+
+// Capas (i = 1 abajo ... 5 arriba)
+const capasUI = {};
+for (let i = 5; i >= 1; i--) {
+  const y = G.capaY0 + (5 - i) * (G.capaH + G.capaGap);
+  const g = el("g", {}, svg);
+  el("title", {}, g).textContent = `Capa ${i}: ${CAPAS[i-1].nombre}. ${PARAMS_CAPA[i-1]} M parámetros (ejemplo).`;
+  const base = el("rect", { x: G.pilaX, y, width: G.pilaW, height: G.capaH, rx: 8 }, g);
+  const ray = el("rect", { x: G.pilaX, y, width: G.pilaW, height: G.capaH, rx: 8, style: "fill:url(#rayado);stroke:none" }, g);
+  const borde = el("rect", { x: G.pilaX, y, width: G.pilaW, height: G.capaH, rx: 8, style: "fill:none;stroke-width:2" }, g);
+  el("circle", { cx: G.pilaX + 20, cy: y + 25, r: 12, style: "fill:var(--superficie);stroke:var(--tinta-suave);stroke-width:2" }, g);
+  texto(String(i), { x: G.pilaX + 20, y: y + 30, class: "t14 mono", "text-anchor": "middle", "font-weight": 700 }, g);
+  const ic = icono(g, i, G.pilaX + 70, y + 25);
+  const rz = ruido(g, G.pilaX + 70, y + 25, SEMILLA + i);
+  texto(CAPAS[i-1].nombre, { x: G.pilaX + 106, y: y + 21, class: "t15", "font-weight": 600 }, g);
+  const sub = texto(CAPAS[i-1].sub, { x: G.pilaX + 106, y: y + 40, class: "t14 suave" }, g);
+  const estado = texto("", { x: G.pilaX + G.pilaW - 56, y: y + 30, class: "t14", "text-anchor": "end" }, g);
+  const c = candado(g, G.pilaX + G.pilaW - 26, y + 25);
+  c.g.addEventListener("click", () => clicCandado(i));
+  c.g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); clicCandado(i); } });
+  capasUI[i] = { base, ray, borde, ic, rz, sub, estado, c };
+}
+// Entrada: cuadrante de pasto (ejemplo visual)
+dibujarCuadrante(svg, G.pilaX, 408, 189, 81, { verde: 0.62, trebol: 0.22, muerta: 0.16 }, SEMILLA);
+texto("Entrada: foto de un cuadrante", { x: G.pilaX + 205, y: 442, class: "t14 suave" }, svg);
+texto("(ejemplo ilustrativo)", { x: G.pilaX + 205, y: 462, class: "t14 suave" }, svg);
+
+// Flecha de ajuste (hasta dónde llega el reentrenamiento)
+const flecha = el("line", { x1: G.flechaX, y1: G.cabezaY + 10, x2: G.flechaX, y2: 120, style: "stroke:var(--primario);stroke-width:2", "marker-end": "url(#punta)" }, svg);
+const tope = el("line", { x1: G.flechaX - 10, x2: G.flechaX + 10, y1: 120, y2: 120, style: "stroke:var(--primario);stroke-width:3" }, svg);
+const flechaTxt = texto("se ajusta", { class: "t14", style: "fill:var(--primario)", "text-anchor": "middle" }, svg);
+
+// Barras
+for (let v = 0; v <= 100; v += 25) {
+  const yy = G.barBase - v / 100 * G.barAlto;
+  el("line", { x1: 545, x2: 790, y1: yy, y2: yy, style: `stroke:var(--linea);stroke-width:${v === 0 ? 2 : 1}` }, svg);
+  texto(String(v), { x: 538, y: yy + 5, class: "t14 suave mono", "text-anchor": "end" }, svg);
+}
+texto("Parámetros a", { x: G.bar1X + 40, y: 66, class: "t14", "text-anchor": "middle", "font-weight": 600 }, svg);
+texto("entrenar (% red)", { x: G.bar1X + 40, y: 84, class: "t14", "text-anchor": "middle", "font-weight": 600 }, svg);
+texto("Calidad", { x: G.bar2X + 40, y: 66, class: "t14", "text-anchor": "middle", "font-weight": 600 }, svg);
+texto("esperada (0–100)", { x: G.bar2X + 40, y: 84, class: "t14", "text-anchor": "middle", "font-weight": 600 }, svg);
+const v1 = texto("", { x: G.bar1X + 40, y: 108, class: "mono", "text-anchor": "middle", "font-size": 20, "font-weight": 700, style: "fill:var(--primario)" }, svg);
+const v2 = texto("", { x: G.bar2X + 40, y: 108, class: "mono", "text-anchor": "middle", "font-size": 20, "font-weight": 700, style: "fill:var(--positivo)" }, svg);
+const bar1 = el("rect", { x: G.bar1X, width: G.barW, rx: 4, style: "fill:var(--primario)" }, svg);
+const bar2 = el("rect", { x: G.bar2X, width: G.barW, rx: 4, style: "fill:var(--positivo)" }, svg);
+const marca = el("line", { x1: G.bar2X - 6, x2: G.bar2X + G.barW + 6, style: "stroke:var(--tinta);stroke-width:2;stroke-dasharray:6 4" }, svg);
+const sub1 = texto("", { x: G.bar1X + 40, y: 394, class: "t14 suave mono", "text-anchor": "middle" }, svg);
+el("line", { x1: 672, x2: 692, y1: 389, y2: 389, style: "stroke:var(--tinta);stroke-width:2;stroke-dasharray:6 4" }, svg);
+const sub2 = texto("", { x: 698, y: 394, class: "t14 suave mono" }, svg);
+texto("Ejemplo ilustrativo (tendencia cualitativa)", { x: 667, y: 420, class: "t14", "text-anchor": "middle", style: "fill:var(--alerta)", "font-weight": 600 }, svg);
+texto("Versión simplificada", { x: 667, y: 438, class: "t14 suave", "text-anchor": "middle" }, svg);
+// Mini curva: se revela al cumplir el reto
+const mini = el("g", {}, svg);
+const miniBloqueo = texto("Cumple el reto para ver la curva completa", { x: 667, y: 474, class: "t14 suave", "text-anchor": "middle" }, svg);
+
+/* ================= ANIMACIÓN DE BARRAS ================= */
+let vis = { p: 0, q: 0, m: 0 }, obj = { p: 0, q: 0, m: 0 }, anim = null;
+function pintarBarras() {
+  const hp = vis.p / 100 * G.barAlto, hq = vis.q / 100 * G.barAlto, ym = G.barBase - vis.m / 100 * G.barAlto;
+  bar1.setAttribute("y", G.barBase - Math.max(hp, 2)); bar1.setAttribute("height", Math.max(hp, 2));
+  bar2.setAttribute("y", G.barBase - Math.max(hq, 2)); bar2.setAttribute("height", Math.max(hq, 2));
+  marca.setAttribute("y1", ym); marca.setAttribute("y2", ym);
+}
+function animarA(nuevo) {
+  obj = nuevo;
+  if (MOV_REDUCIDO) { vis = { ...obj }; pintarBarras(); return; }
+  const ini = { ...vis }, t0 = performance.now(), dur = 500;
+  cancelAnimationFrame(anim);
+  const paso = t => { const u = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - u, 3);
+    for (const k in obj) vis[k] = ini[k] + (obj[k] - ini[k]) * e; pintarBarras(); if (u < 1) anim = requestAnimationFrame(paso); };
+  anim = requestAnimationFrame(paso);
+}
+
+/* ================= RENDER ================= */
+const $ = id => document.getElementById(id);
+function render() {
+  const n = N_IMAGENES[est.nIdx], cero = est.modo === "cero";
+  const resaltar = est.paso >= 0 ? PASOS[est.paso].resaltar : [];
+  // Capas
+  for (let i = 1; i <= 5; i++) {
+    const u = capasUI[i], abierta = capaAbierta(i);
+    u.base.style.fill = abierta ? (cero ? "var(--superficie)" : "var(--primario-suave)") : "var(--congelada)";
+    u.ray.style.display = abierta ? "none" : "";
+    u.borde.style.stroke = abierta ? "var(--primario)" : "var(--linea)";
+    u.borde.classList.toggle("resalte", resaltar.includes(i));
+    u.ic.style.display = cero ? "none" : ""; u.rz.style.display = cero ? "" : "none";
+    u.sub.textContent = cero ? "pesos al azar" : CAPAS[i-1].sub;
+    u.estado.textContent = abierta ? "se reentrena" : "congelada";
+    u.estado.style.fill = abierta ? "var(--primario)" : "var(--tinta-suave)";
+    pintarCandado(u.c, abierta);
+    u.c.g.setAttribute("aria-disabled", cero ? "true" : "false");
+    u.c.g.setAttribute("aria-label", `Capa ${i}, ${CAPAS[i-1].nombre}: ${abierta ? "se reentrena" : "congelada"}. ${cero ? "Bloqueado en modo desde cero." : "Pulsa para cambiar."}`);
+  }
+  cabezaRect.classList.toggle("resalte", resaltar.includes("cabeza"));
+  // Flecha de ajuste
+  const kVis = cero ? 5 : est.k;
+  const yFin = kVis === 0 ? G.cabezaY + G.cabezaH + 4 : G.capaY0 + (kVis - 1) * (G.capaH + G.capaGap) + G.capaH;
+  flecha.setAttribute("y2", yFin - 6); tope.setAttribute("y1", yFin); tope.setAttribute("y2", yFin);
+  const ym = (G.cabezaY + 10 + yFin) / 2;
+  flechaTxt.setAttribute("transform", `translate(${G.flechaX + 16} ${ym}) rotate(90)`);
+  flechaTxt.setAttribute("x", 0); flechaTxt.setAttribute("y", 0);
+  // Números
+  const p = paramsEntrenables(), q = cero ? calidadCero(n) : calidad(est.k, n);
+  const otra = cero ? calidad(0, n) : calidadCero(n);
+  v1.textContent = (p / PARAMS_TOTAL * 100 < 1 ? "<1" : Math.round(p / PARAMS_TOTAL * 100)) + "%";
+  v2.textContent = Math.round(q * 100);
+  sub1.textContent = `${p.toFixed(2)} / ${PARAMS_TOTAL.toFixed(2)} M`;
+  sub2.textContent = cero ? `reutilizar: ${Math.round(otra * 100)}` : `de cero: ${Math.round(otra * 100)}`;
+  animarA({ p: p / PARAMS_TOTAL * 100, q: q * 100, m: otra * 100 });
+  // Controles
+  $("ctlCapas").value = est.k; $("ctlCapas").disabled = cero;
+  $("valCapas").textContent = cero ? "todas (de cero)" : `${est.k} de 5`;
+  $("ctlImagenes").value = est.nIdx; $("valImagenes").textContent = n;
+  $("ctlImagenes").setAttribute("aria-valuetext", `${n} imágenes`);
+  $("ctlCapas").setAttribute("aria-valuetext", cero ? "todas, desde cero" : `${est.k} de 5 capas`);
+  $("btnCero").setAttribute("aria-pressed", cero); $("btnReusar").setAttribute("aria-pressed", !cero);
+  // Qué observar (cambia con el estado)
+  let obs;
+  if (cero) obs = n <= 500 ? "Desde cero, con pocas imágenes la red casi no aprende. Compárala con reutilizar."
+                           : "Más imágenes ayudan a empezar de cero, pero reutilizar sigue muy por delante.";
+  else { const b = mejorK(n);
+    obs = est.k === b ? "Equilibrio justo: con estos datos, estas capas abiertas dan la mejor calidad."
+        : est.k > b ? "Demasiados candados abiertos para tan pocos datos: la red memoriza y la calidad cae."
+        : "Hay datos suficientes para abrir otro candado y adaptar mejor la red."; }
+  $("txtObservar").textContent = obs;
+  // Reto
+  if (!est.resuelto && !cero && n === 100 && est.k === mejorK(100) && est.paso < 0) est.resuelto = true;
+  $("cajaReto").classList.toggle("logrado", est.resuelto);
+  $("retoCheck").toggleAttribute("hidden", !est.resuelto);
+  $("retoCirculo").setAttribute("fill", est.resuelto ? "currentColor" : "none");
+  $("retoCheck").style.stroke = est.resuelto ? "var(--superficie)" : "currentColor";
+  $("retoTexto").textContent = est.resuelto ? "¡Logrado! Pocos datos: casi todo congelado."
+    : `Ahora: ${n} imágenes · ${cero ? "de cero" : est.k + " capas"}`;
+  // Mini curva
+  dibujarMini(n);
+  // Paso a paso
+  $("cajaReto").hidden = est.paso >= 0; $("cajaPaso").hidden = est.paso < 0;
+  if (est.paso >= 0) { $("pasoTitulo").textContent = `Paso ${est.paso + 1}/${PASOS.length}`;
+    $("pasoTexto").textContent = PASOS[est.paso].txt; $("btnAnterior").disabled = est.paso === 0;
+    $("btnSiguiente").textContent = est.paso === PASOS.length - 1 ? "Terminar" : "Siguiente ▶"; }
+  // Fórmula viva
+  const kF = cero ? null : est.k;
+  $("formulaViva").textContent = cero
+    ? `de cero: ${DESDE_CERO.ajuste.toFixed(2)} × (1 − e^(−${n} / ${DESDE_CERO.datos})) = ${q.toFixed(2)}`
+    : `k = ${kF}, n = ${n}: ${AJUSTE[kF].toFixed(2)} × (1 − e^(−${n} / ${DATOS_NECESARIOS[kF]})) = ${q.toFixed(2)}`;
+}
+function dibujarMini(n) {
+  while (mini.firstChild) mini.removeChild(mini.firstChild);
+  miniBloqueo.style.display = est.resuelto ? "none" : "";
+  if (!est.resuelto) return;
+  texto(`Calidad según capas abiertas (${n} imágenes)`, { x: 667, y: 458, class: "t14 suave", "text-anchor": "middle" }, mini);
+  const b = mejorK(n), x0 = 560, dx = 42, yB = 486, hh = 18;
+  for (let k = 0; k < 6; k++) {
+    const q = calidad(k, n), x = x0 + k * dx + 10, y = yB - q * hh;
+    if (k > 0) { const qa = calidad(k - 1, n); el("line", { x1: x - dx, y1: yB - qa * hh, x2: x, y2: y, style: "stroke:var(--linea);stroke-width:2" }, mini); }
+  }
+  for (let k = 0; k < 6; k++) {
+    const q = calidad(k, n), x = x0 + k * dx + 10, y = yB - q * hh;
+    el("circle", { cx: x, cy: y, r: k === b ? 6 : 4, style: `fill:${k === b ? "var(--positivo)" : "var(--superficie)"};stroke:var(--positivo);stroke-width:2` }, mini);
+    texto(String(k), { x: x + 14, y: y + 5, class: "t14 mono suave" }, mini);
+  }
+}
+
+/* ================= INTERACCIÓN ================= */
+function clicCandado(i) {
+  if (est.modo === "cero") return;
+  // Los candados se abren desde arriba: abrir la capa i abre también las de encima
+  est.k = capaAbierta(i) ? 5 - i : 6 - i;
+  salirPasos(false); render();
+}
+$("ctlCapas").addEventListener("input", e => { est.k = +e.target.value; salirPasos(false); render(); });
+$("ctlImagenes").addEventListener("input", e => { est.nIdx = +e.target.value; salirPasos(false); render(); });
+$("btnCero").addEventListener("click", () => { est.modo = "cero"; salirPasos(false); render(); });
+$("btnReusar").addEventListener("click", () => { est.modo = "reutilizar"; salirPasos(false); render(); });
+$("btnReiniciar").addEventListener("click", () => { est = { ...INICIAL }; cerrarInfo(); render(); });
+function irPaso(p) { est.paso = p; const s = PASOS[p]; est.modo = s.modo; est.k = s.k; est.nIdx = s.n; render(); }
+function salirPasos(rend = true) { if (est.paso < 0) return; est.paso = -1; if (rend) render(); }
+$("btnPasos").addEventListener("click", () => irPaso(0));
+$("btnSiguiente").addEventListener("click", () => { if (est.paso < PASOS.length - 1) irPaso(est.paso + 1); else { salirPasos(); $("btnPasos").focus(); } });
+$("btnAnterior").addEventListener("click", () => { if (est.paso > 0) irPaso(est.paso - 1); });
+$("btnSalir").addEventListener("click", () => { salirPasos(); $("btnPasos").focus(); });
+function abrirInfo() { $("capaInfo").hidden = false; $("btnCerrarInfo").focus(); }
+function cerrarInfo() { if ($("capaInfo").hidden) return; $("capaInfo").hidden = true; $("btnInfo").focus(); }
+$("btnInfo").addEventListener("click", abrirInfo);
+$("btnCerrarInfo").addEventListener("click", cerrarInfo);
+document.addEventListener("keydown", e => { if (e.key === "Escape") { if (!$("capaInfo").hidden) cerrarInfo(); else salirPasos(); } });
+
+/* ================= ESCALADO DEL ESCENARIO ================= */
+function escalar() {
+  const W = window.innerWidth, H = window.innerHeight, s = Math.min(W / 1280, H / 720);
+  const x = (W - 1280 * s) / 2, y = (H - 720 * s) / 2;
+  $("escenario").style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+}
+window.addEventListener("resize", escalar);
+escalar(); render();
+</script>
+
+</body></html>

@@ -1,0 +1,463 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>10 R² vs promedio</title>
+<style>
+/* Layout: escenario fijo 1280×720 escalado; franja superior, zona central (visual 820 + panel 388), franja inferior */
+:root{
+  --fondo:#FAFAF7; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --panel:#FFFFFF; --zona-neg:rgba(198,40,40,.14); --zona-pos:rgba(21,128,61,.12); --zona-alta:rgba(21,128,61,.26);
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+    --panel:#1F2937; --zona-neg:rgba(248,113,113,.18); --zona-pos:rgba(74,222,128,.12); --zona-alta:rgba(74,222,128,.26);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+  --panel:#1F2937; --zona-neg:rgba(248,113,113,.18); --zona-pos:rgba(74,222,128,.12); --zona-alta:rgba(74,222,128,.26);
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+*{box-sizing:border-box}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center center;
+  padding:16px 24px 24px;display:grid;grid-template-rows:72px 500px 80px;row-gap:14px;font-size:15px;line-height:1.35}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button{font-family:var(--sans);font-size:15px;color:var(--tinta)}
+:focus-visible{outline:3px solid var(--primario);outline-offset:2px}
+
+/* Franja superior */
+#top{display:grid;grid-template-columns:1fr auto;align-items:start}
+#top h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em}
+#top h1 .num{color:var(--primario);font-family:var(--mono);margin-right:10px}
+#top p{margin:6px 0 0;font-size:16px;color:var(--tinta-suave);white-space:nowrap}
+.btn{min-height:40px;padding:0 16px;border:2px solid var(--linea);border-radius:8px;background:var(--panel);cursor:pointer}
+.btn:hover{border-color:var(--tinta-suave)}
+.btn.prim{border-color:var(--primario);color:var(--primario);font-weight:600}
+
+/* Zona central */
+#center{display:grid;grid-template-columns:820px 388px;column-gap:24px}
+#visual{border:2px solid var(--linea);border-radius:8px;background:var(--panel);position:relative;
+  display:grid;grid-template-rows:40px 1fr;padding:0 0 4px}
+#vhead{display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:2px solid var(--linea);font-size:15px}
+#vhead .paso{font-family:var(--mono);color:var(--primario);font-weight:700}
+#vbody{display:grid;grid-template-columns:470px 330px;column-gap:12px;padding:4px 0 0}
+svg text{font-family:var(--sans);font-size:14px;fill:var(--tinta)}
+svg .suave{fill:var(--tinta-suave)}
+#meterPanel{display:flex;flex-direction:column;gap:10px;padding:10px 4px 0 0}
+#meterPanel h2{margin:0;font-size:16px}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.big{font-size:36px;font-weight:700;line-height:1}
+.mid{font-size:28px;font-weight:700;line-height:1}
+.cap{font-size:14px;color:var(--tinta-suave)}
+.barlab{display:flex;justify-content:space-between;font-size:14px;margin-bottom:3px}
+.track{height:16px;position:relative}
+.bar{position:absolute;left:0;top:0;height:16px;border-radius:4px;transition:width .4s ease}
+#barBase{width:140px;border:2px dashed var(--alerta);background:repeating-linear-gradient(45deg,transparent 0 5px,color-mix(in srgb,var(--alerta) 35%,transparent) 5px 7px)}
+#barModel{background:var(--primario)}
+.refline{position:absolute;left:140px;top:-4px;width:2px;height:24px;background:var(--tinta-suave)}
+.hl{outline:3px solid var(--primario);outline-offset:3px;border-radius:6px}
+#formula{font-size:15px;padding:8px 10px;border:2px solid var(--linea);border-radius:8px}
+#formula .eq{font-family:var(--mono);font-size:17px;font-weight:700}
+
+/* Panel derecho */
+#side{display:flex;flex-direction:column;gap:12px}
+.card{border:2px solid var(--linea);border-radius:8px;background:var(--panel);padding:12px 14px}
+#controls{height:262px;display:flex;flex-direction:column;gap:8px}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline}
+.ctl .val{font-family:var(--mono);font-weight:700}
+input[type=range]{width:100%;height:36px;margin:0;accent-color:var(--primario);cursor:pointer}
+input[type=range]:disabled{opacity:.35;cursor:not-allowed}
+.switch{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;border:0;background:none;padding:0;cursor:pointer;text-align:left}
+.track-sw{width:52px;height:28px;border-radius:14px;border:2px solid var(--tinta-suave);position:relative;flex:none;transition:background .3s}
+.knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--tinta-suave);transition:left .3s,background .3s}
+.switch[aria-checked=true] .track-sw{background:var(--alerta);border-color:var(--alerta)}
+.switch[aria-checked=true] .knob{left:27px;background:var(--panel)}
+.btns{display:flex;gap:10px;margin-top:2px}
+.btns .btn{flex:1}
+#observar{height:92px}
+#reto{height:122px}
+.kicker{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:4px}
+#obsText{font-size:16px}
+.chk{display:flex;align-items:center;gap:8px;font-size:15px;margin-top:4px}
+.box{width:22px;height:22px;border:2px solid var(--linea);border-radius:6px;display:grid;place-items:center;flex:none;font-weight:700;font-size:14px;color:transparent;transition:all .3s}
+.chk.ok .box{border-color:var(--positivo);background:var(--positivo);color:var(--panel)}
+#retoBadge{margin-left:auto;font-weight:700;color:var(--positivo);opacity:0;transition:opacity .4s}
+#reto.done{border-color:var(--positivo)}
+#reto.done #retoBadge{opacity:1}
+
+/* Franja inferior */
+#bottom{display:grid;grid-template-columns:1fr 1fr;gap:24px;border-top:2px solid var(--linea);padding-top:10px;font-size:15px}
+#bottom b{display:block;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:2px}
+
+/* Capa de notas */
+#notes{position:absolute;inset:0;background:color-mix(in srgb,var(--fondo) 80%,transparent);display:grid;place-items:center;z-index:5}
+#notes[hidden]{display:none}
+#notes .card{width:640px;padding:22px 26px;font-size:16px}
+#notes h3{margin:0 0 10px;font-size:20px}
+#notes ul{margin:0 0 16px;padding-left:20px;display:grid;gap:8px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div id="stage">
+  <!-- Franja superior -->
+  <header id="top">
+    <div>
+      <h1><span class="num">10</span>R²: ¿mejor que adivinar el promedio?</h1>
+      <p>R² compara tu modelo contra predecir siempre el promedio: 1 es perfecto, 0 empata, negativo es peor.</p>
+    </div>
+    <button class="btn" id="btnNotes" aria-haspopup="dialog">Notas</button>
+  </header>
+
+  <!-- Zona central -->
+  <main id="center">
+    <section id="visual" aria-label="Gráfico valor real contra valor predicho y medidor R²">
+      <div id="vhead"><span id="vheadText">Valor real vs. valor predicho en 25 cuadrantes de pasto</span></div>
+      <div id="vbody">
+        <svg id="plot" width="470" height="450" viewBox="0 0 470 450" role="img" aria-label="Dispersión real contra predicho"></svg>
+        <div id="meterPanel">
+          <h2>¿Mejor que el promedio?</h2>
+          <svg id="meter" width="330" height="116" viewBox="0 0 330 116" role="img" aria-label="Medidor de R² de −1 a 1"></svg>
+          <div class="nums" id="numsBox">
+            <div><div class="cap">R²</div><div class="big mono" id="r2Val">0.00</div></div>
+            <div><div class="cap">Error típico del modelo</div><div class="mid mono" id="rmseVal">0 g</div>
+              <div class="cap mono" id="rmseBase">promedio: 0 g</div></div>
+          </div>
+          <div id="barsBox">
+            <div id="baseRow"><div class="barlab"><span>Error² del promedio</span><span class="mono">1.00 × (referencia)</span></div>
+            <div class="track"><div class="bar" id="barBase"></div></div></div>
+            <div id="modelRow" style="margin-top:8px"><div class="barlab"><span>Error² del modelo</span><span class="mono" id="ratioVal">0.00 ×</span></div>
+            <div class="track"><div class="bar" id="barModel"></div><div class="refline"></div></div></div>
+          </div>
+          <div id="formula"><div class="cap">R² = 1 − (error del modelo ÷ error del promedio)</div>
+            <div class="eq" id="eqVal">R² = 1 − 0.00 = 1.00</div></div>
+        </div>
+      </div>
+    </section>
+
+    <aside id="side">
+      <div class="card" id="controls">
+        <div class="ctl">
+          <div class="row"><label for="noise">Ruido en las predicciones</label><span class="val" id="noiseVal">0 g</span></div>
+          <input type="range" id="noise" min="0" max="250" step="5" aria-label="Ruido en las predicciones, en gramos">
+        </div>
+        <div class="ctl">
+          <div class="row"><label for="bias">Sesgo: siempre hacia un lado</label><span class="val" id="biasVal">0 g</span></div>
+          <input type="range" id="bias" min="-250" max="250" step="5" aria-label="Sesgo en gramos, el modelo se equivoca siempre para el mismo lado">
+        </div>
+        <button class="switch" id="meanSw" role="switch" aria-checked="false" aria-label="Predecir siempre el promedio">
+          <span>Predecir siempre el promedio</span><span class="track-sw"><span class="knob"></span></span>
+        </button>
+        <div class="btns">
+          <button class="btn prim" id="btnStep">Paso a paso ▶</button>
+          <button class="btn" id="btnReset">Reiniciar</button>
+        </div>
+      </div>
+      <div class="card" id="observar" aria-live="polite">
+        <div class="kicker">Qué observar</div>
+        <div id="obsText"></div>
+      </div>
+      <div class="card" id="reto">
+        <div class="kicker" style="display:flex">Reto <span id="retoBadge">✓ Reto cumplido</span></div>
+        <div style="font-size:15px">Fabrica un modelo con R² negativo y luego uno con R² mayor que 0.8.</div>
+        <div style="display:flex;gap:18px">
+          <div class="chk" id="chkNeg"><span class="box">✓</span>R² &lt; 0</div>
+          <div class="chk" id="chkHigh"><span class="box">✓</span>luego R² &gt; 0.8</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Franja inferior -->
+  <footer id="bottom">
+    <div><b>Analogía en sistemas</b>Un benchmark contra un baseline trivial: si tu algoritmo complejo no supera la solución ingenua, no aporta.</div>
+    <div><b>En el campo</b>Al estimar gramos de materia seca, un R² modesto aún puede superar a predecir siempre el promedio.</div>
+  </footer>
+
+  <!-- Capa de notas (secundaria) -->
+  <div id="notes" hidden role="dialog" aria-modal="true" aria-labelledby="notesT">
+    <div class="card">
+      <h3 id="notesT">Notas</h3>
+      <ul>
+        <li>Versión simplificada: 25 cuadrantes de ejemplo, sin separar entrenamiento y prueba.</li>
+        <li>Error típico: raíz del promedio de los errores al cuadrado, en gramos.</li>
+        <li>Error² suma los errores al cuadrado de los 25 cuadrantes.</li>
+        <li>El mismo error en gramos da otro R² si los datos reales varían más o menos.</li>
+        <li>Datos y predicciones: ejemplo ilustrativo, generado con semilla fija.</li>
+      </ul>
+      <button class="btn prim" id="btnClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== CONSTANTES ===================== */
+const N = 25;                 // número de cuadrantes de ejemplo
+const SEMILLA = 10;           // semilla fija: presentación reproducible
+const DOM_MAX = 1200;         // escala de ambos ejes, en gramos
+const RUIDO_INICIAL = 110, SESGO_INICIAL = 0;
+const PL = 64, PT = 14, LADO = 390;   // márgenes y lado del área de datos del gráfico
+const MX0 = 15, MW = 300;             // posición y ancho de la barra del medidor
+const REF_PX = 140;                   // ancho en px del error² del promedio (referencia)
+const DUR_MS = 450;                   // duración de las transiciones
+const PASOS = [
+  "La solución tonta: predecir siempre el promedio, sin mirar la imagen.",
+  "Medimos su error: distancia de cada valor real al promedio.",
+  "Medimos el error del modelo: distancia de cada predicción a la diagonal.",
+  "R² dice qué fracción de ese error eliminó el modelo."
+];
+const SVGNS = "http://www.w3.org/2000/svg";
+const reducirMov = matchMedia("(prefers-reduced-motion: reduce)");
+
+/* ===================== DATOS CON SEMILLA ===================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+const rnd = mulberry32(SEMILLA);
+// Valores reales (gramos de materia seca) entre 180 y 820
+const reales = Array.from({length:N}, () => Math.round(180 + 640*rnd()));
+// Ruido base normal (Box-Muller), normalizado a media 0 y desviación 1
+let z = Array.from({length:N}, () => Math.sqrt(-2*Math.log(1-rnd()))*Math.cos(2*Math.PI*rnd()));
+const zm = z.reduce((a,b)=>a+b,0)/N;
+z = z.map(v=>v-zm);
+const zs = Math.sqrt(z.reduce((a,b)=>a+b*b,0)/N);
+z = z.map(v=>v/zs);
+const promedio = reales.reduce((a,b)=>a+b,0)/N;
+
+/* ===================== ESTADO ===================== */
+const st = {ruido:RUIDO_INICIAL, sesgo:SESGO_INICIAL, soloPromedio:false, paso:0, retoNeg:false, retoAlto:false};
+let mostradas = predicciones();   // predicciones dibujadas (se animan hacia las verdaderas)
+
+function predicciones(){
+  return reales.map((y,i)=> st.soloPromedio ? promedio : y + st.sesgo + st.ruido*z[i]);
+}
+// Cálculo real de R² y error típico en el navegador
+function metricas(p){
+  let ssRes=0, ssTot=0;
+  for(let i=0;i<N;i++){ssRes+=(reales[i]-p[i])**2; ssTot+=(reales[i]-promedio)**2;}
+  return {r2:1-ssRes/ssTot, ratio:ssRes/ssTot, rmse:Math.sqrt(ssRes/N), rmseBase:Math.sqrt(ssTot/N)};
+}
+
+/* ===================== GRÁFICO DE DISPERSIÓN ===================== */
+const sx = v => PL + v/DOM_MAX*LADO;
+const sy = v => PT + LADO - v/DOM_MAX*LADO;
+function el(tag, attrs, parent){const e=document.createElementNS(SVGNS,tag);
+  for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e;}
+const plot = document.getElementById("plot");
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// Rejilla y ejes
+for(let v=0; v<=DOM_MAX; v+=300){
+  el("line",{x1:sx(v),x2:sx(v),y1:PT,y2:PT+LADO,stroke:"var(--linea)","stroke-width":1},plot);
+  el("line",{x1:PL,x2:PL+LADO,y1:sy(v),y2:sy(v),stroke:"var(--linea)","stroke-width":1},plot);
+  el("text",{x:sx(v),y:PT+LADO+20,"text-anchor":"middle",class:"suave mono"},plot).textContent=v;
+  el("text",{x:PL-8,y:sy(v)+5,"text-anchor":"end",class:"suave mono"},plot).textContent=v;
+}
+el("text",{x:PL+LADO/2,y:446,"text-anchor":"middle"},plot).textContent="Valor real (g de materia seca)";
+const yt=el("text",{x:16,y:PT+LADO/2,"text-anchor":"middle",transform:`rotate(-90 16 ${PT+LADO/2})`},plot);
+yt.textContent="Valor predicho (g)";
+el("rect",{x:PL,y:PT,width:LADO,height:LADO,fill:"none",stroke:"var(--tinta-suave)","stroke-width":2,rx:2},plot);
+// Etiqueta de datos sintéticos
+el("text",{x:PL+10,y:PT+22,class:"suave"},plot).textContent="Ejemplo ilustrativo";
+// Diagonal ideal
+el("line",{x1:sx(0),y1:sy(0),x2:sx(DOM_MAX),y2:sy(DOM_MAX),stroke:"var(--tinta)","stroke-width":2},plot);
+el("text",{x:sx(1150),y:sy(1150)+30,"text-anchor":"end"},plot).textContent="Predicción perfecta";
+// Línea del promedio
+el("line",{x1:sx(0),y1:sy(promedio),x2:sx(DOM_MAX),y2:sy(promedio),stroke:"var(--alerta)","stroke-width":2,"stroke-dasharray":"8 5"},plot);
+el("text",{x:sx(1190),y:sy(promedio)-8,"text-anchor":"end",fill:"var(--alerta)",style:"fill:var(--alerta);font-weight:600"},plot)
+  .textContent=`Promedio = ${Math.round(promedio)} g`;
+
+// Capas: segmentos de error, fantasmas (promedio), puntos del modelo, tooltip
+const gSegBase = el("g",{},plot), gSegMod = el("g",{},plot), gGhost = el("g",{},plot), gPts = el("g",{},plot);
+const segBase=[], segMod=[], ghosts=[], pts=[];
+for(let i=0;i<N;i++){
+  segBase.push(el("line",{stroke:"var(--alerta)","stroke-width":2,"stroke-dasharray":"4 3"},gSegBase));
+  segMod.push(el("line",{stroke:"var(--primario)","stroke-width":2},gSegMod));
+  ghosts.push(el("rect",{width:10,height:10,rx:2,fill:"var(--panel)",stroke:"var(--alerta)","stroke-width":2},gGhost));
+  pts.push(el("path",{fill:"var(--primario)",stroke:"var(--panel)","stroke-width":1.5},gPts));
+}
+const tip = el("g",{visibility:"hidden","pointer-events":"none"},plot);
+const tipBg = el("rect",{rx:6,fill:"var(--panel)",stroke:"var(--tinta-suave)","stroke-width":2,height:48,width:190},tip);
+const tip1 = el("text",{class:"mono"},tip), tip2 = el("text",{class:"mono"},tip);
+
+function dibujarPlot(){
+  const vis = visibilidad();
+  gSegBase.style.opacity = vis.segBase; gSegMod.style.opacity = vis.segMod;
+  gGhost.style.opacity = vis.ghost; gPts.style.opacity = vis.pts;
+  for(let i=0;i<N;i++){
+    const x = sx(reales[i]), p = mostradas[i];
+    segBase[i].setAttribute("x1",x-3); segBase[i].setAttribute("x2",x-3);
+    segBase[i].setAttribute("y1",sy(promedio)); segBase[i].setAttribute("y2",sy(reales[i]));
+    const pc = Math.max(0,Math.min(DOM_MAX,p));
+    segMod[i].setAttribute("x1",x+3); segMod[i].setAttribute("x2",x+3);
+    segMod[i].setAttribute("y1",sy(pc)); segMod[i].setAttribute("y2",sy(reales[i]));
+    ghosts[i].setAttribute("x",x-5); ghosts[i].setAttribute("y",sy(promedio)-5);
+    // Punto: círculo si cabe en la escala, triángulo en el borde si se sale
+    let d;
+    if(p>DOM_MAX){const yy=sy(DOM_MAX); d=`M${x-7},${yy+9}L${x+7},${yy+9}L${x},${yy-3}Z`;}
+    else if(p<0){const yy=sy(0); d=`M${x-7},${yy-9}L${x+7},${yy-9}L${x},${yy+3}Z`;}
+    else{const yy=sy(p); d=`M${x-6},${yy}a6,6 0 1,0 12,0a6,6 0 1,0 -12,0`;}
+    pts[i].setAttribute("d",d);
+  }
+}
+// Qué capas se ven según el modo / paso
+function visibilidad(){
+  switch(st.paso){
+    case 1: return {segBase:0, segMod:0, ghost:1, pts:.15};
+    case 2: return {segBase:1, segMod:0, ghost:1, pts:.15};
+    case 3: return {segBase:.2, segMod:1, ghost:.25, pts:1};
+    case 4: return {segBase:1, segMod:1, ghost:.6, pts:1};
+    default: return {segBase:0, segMod:0, ghost:0, pts:1};
+  }
+}
+// Animación de las predicciones hacia su valor real calculado
+let anim=null;
+function animarHacia(obj){
+  if(anim) cancelAnimationFrame(anim);
+  if(reducirMov.matches){mostradas=obj.slice(); dibujarPlot(); return;}
+  const ini=mostradas.slice(), t0=performance.now();
+  const step=t=>{const k=Math.min(1,(t-t0)/DUR_MS), e=1-Math.pow(1-k,3);
+    mostradas=ini.map((v,i)=>v+(obj[i]-v)*e); dibujarPlot();
+    if(k<1) anim=requestAnimationFrame(step); else anim=null;};
+  anim=requestAnimationFrame(step);
+}
+// Hover / toque: valor de cada cuadrante
+function puntoPx(evt){const r=plot.getBoundingClientRect();
+  return {x:(evt.clientX-r.left)*470/r.width, y:(evt.clientY-r.top)*450/r.height};}
+plot.addEventListener("pointermove",mostrarTip);
+plot.addEventListener("pointerdown",mostrarTip);
+plot.addEventListener("pointerleave",()=>tip.setAttribute("visibility","hidden"));
+function mostrarTip(evt){
+  const m=puntoPx(evt); let best=-1, bd=22*22;
+  for(let i=0;i<N;i++){const p=Math.max(0,Math.min(DOM_MAX,mostradas[i]));
+    const dx=sx(reales[i])-m.x, dy=sy(p)-m.y, d=dx*dx+dy*dy; if(d<bd){bd=d;best=i;}}
+  if(best<0){tip.setAttribute("visibility","hidden");return;}
+  const x=sx(reales[best]), y=sy(Math.max(0,Math.min(DOM_MAX,mostradas[best])));
+  const pr=Math.round(mostradas[best]), err=pr-reales[best];
+  tip1.textContent=`Real ${reales[best]} g · Pred ${pr} g`;
+  tip2.textContent=`Error ${err>0?"+":""}${err} g`;
+  const w=Math.max(150, tip1.getComputedTextLength()+20);
+  tipBg.setAttribute("width",w);
+  let tx=x+12, ty=y-58; if(tx+w>PL+LADO) tx=x-12-w; if(ty<PT) ty=y+12;
+  tipBg.setAttribute("x",tx); tipBg.setAttribute("y",ty);
+  tip1.setAttribute("x",tx+10); tip1.setAttribute("y",ty+20);
+  tip2.setAttribute("x",tx+10); tip2.setAttribute("y",ty+39);
+  tip.setAttribute("visibility","visible");
+}
+
+/* ===================== MEDIDOR ===================== */
+const meter=document.getElementById("meter");
+const mx = r => MX0 + (Math.max(-1,Math.min(1,r))+1)/2*MW;
+const defs=el("defs",{},meter);
+const pat=el("pattern",{id:"rayas",width:8,height:8,patternUnits:"userSpaceOnUse",patternTransform:"rotate(45)"},defs);
+el("rect",{width:8,height:8,fill:"var(--zona-neg)"},pat);
+el("line",{x1:0,y1:0,x2:0,y2:8,stroke:"var(--error)","stroke-width":2,opacity:.5},pat);
+// Zonas: peor (rayado), mejora, casi perfecto
+el("rect",{x:mx(-1),y:38,width:mx(0)-mx(-1),height:24,fill:"url(#rayas)"},meter);
+el("rect",{x:mx(0),y:38,width:mx(.8)-mx(0),height:24,fill:"var(--zona-pos)"},meter);
+el("rect",{x:mx(.8),y:38,width:mx(1)-mx(.8),height:24,fill:"var(--zona-alta)"},meter);
+el("rect",{x:MX0,y:38,width:MW,height:24,rx:4,fill:"none",stroke:"var(--tinta-suave)","stroke-width":2},meter);
+el("line",{x1:mx(0),x2:mx(0),y1:32,y2:68,stroke:"var(--tinta)","stroke-width":2},meter);
+el("line",{x1:mx(.8),x2:mx(.8),y1:38,y2:62,stroke:"var(--tinta-suave)","stroke-width":1.5,"stroke-dasharray":"3 2"},meter);
+// Escala y rótulos
+[["−1",-1,"start"],["0.8",.8,"middle"],["1",1,"end"]].forEach(([t,v,a])=>{
+  el("text",{x:mx(v)+(a==="start"?-2:a==="end"?2:0),y:28,"text-anchor":a,class:"suave mono"},meter).textContent=t;});
+el("text",{x:mx(0),y:28,"text-anchor":"middle",style:"font-weight:600"},meter).textContent="0 · empata";
+el("text",{x:(mx(-1)+mx(0))/2,y:84,"text-anchor":"middle"},meter).textContent="peor que el promedio";
+el("text",{x:(mx(0)+mx(.8))/2,y:84,"text-anchor":"middle"},meter).textContent="mejora";
+el("line",{x1:(mx(.8)+mx(1))/2,x2:(mx(.8)+mx(1))/2,y1:66,y2:92,stroke:"var(--tinta-suave)","stroke-width":1.5},meter);
+el("text",{x:MX0+MW+2,y:108,"text-anchor":"end"},meter).textContent="casi perfecto";
+// Marcador del R² actual
+const marker=el("g",{},meter);
+const markRect=el("rect",{x:-4,y:32,width:8,height:36,rx:3,stroke:"var(--panel)","stroke-width":2},marker);
+const markOut=el("text",{x:MX0+4,y:108,class:"mono",style:"font-weight:700"},meter);
+
+/* ===================== ACTUALIZACIÓN ===================== */
+const $ = id => document.getElementById(id);
+const fmt = v => (v<0?"−":"")+Math.abs(v).toFixed(2);
+function estadoColor(r2){ if(st.soloPromedio || Math.abs(r2)<0.02) return "var(--alerta)";
+  return r2<0 ? "var(--error)" : "var(--positivo)"; }
+
+function actualizar(animar=true){
+  const obj = predicciones(), m = metricas(obj);
+  // Controles
+  $("noiseVal").textContent = `${st.ruido} g`;
+  $("biasVal").textContent = `${st.sesgo>0?"+":st.sesgo<0?"−":""}${Math.abs(st.sesgo)} g`;
+  $("noise").disabled = $("bias").disabled = st.soloPromedio;
+  $("meanSw").setAttribute("aria-checked", st.soloPromedio);
+  // Números
+  const r2 = st.soloPromedio ? 0 : m.r2;
+  $("r2Val").textContent = fmt(r2);
+  $("r2Val").style.color = estadoColor(r2);
+  $("rmseVal").textContent = `${Math.round(m.rmse)} g`;
+  $("rmseBase").textContent = `promedio: ${Math.round(m.rmseBase)} g`;
+  $("ratioVal").textContent = `${m.ratio.toFixed(2)} ×`;
+  const w = Math.min(m.ratio, 2.1)*REF_PX;
+  $("barModel").style.width = `${Math.max(2,w)}px`;
+  $("barModel").style.background = m.ratio>1 ? "var(--error)" : "var(--primario)";
+  $("eqVal").textContent = `R² = 1 − ${m.ratio.toFixed(2)} = ${fmt(r2)}`;
+  // Medidor
+  marker.setAttribute("transform",`translate(${mx(r2)},0)`);
+  markRect.setAttribute("fill", estadoColor(r2));
+  markOut.textContent = r2 < -1 ? `◀ R² < −1` : "";
+  markOut.style.fill = "var(--error)";
+  // Resaltado por paso
+  $("baseRow").classList.toggle("hl", st.paso===2);
+  $("modelRow").classList.toggle("hl", st.paso===3);
+  $("formula").classList.toggle("hl", st.paso===4);
+  // Encabezado del visual: texto del paso o título
+  $("vheadText").innerHTML = st.paso
+    ? `<span class="paso">Paso ${st.paso} de 4</span> · ${PASOS[st.paso-1]}`
+    : "Valor real vs. valor predicho en 25 cuadrantes de pasto";
+  $("btnStep").textContent = st.paso===0 ? "Paso a paso ▶" : st.paso<4 ? "Siguiente ▶" : "Terminar ✓";
+  // Qué observar
+  $("obsText").textContent = observacion(r2);
+  // Reto
+  if(!st.soloPromedio){ if(r2<0) st.retoNeg=true; if(st.retoNeg && r2>0.8) st.retoAlto=true; }
+  $("chkNeg").classList.toggle("ok", st.retoNeg);
+  $("chkHigh").classList.toggle("ok", st.retoAlto);
+  $("reto").classList.toggle("done", st.retoNeg && st.retoAlto);
+  if(animar) animarHacia(obj); else {mostradas=obj; dibujarPlot();}
+}
+
+function observacion(r2){
+  if(st.paso===1) return "Los cuadrados naranjas: misma predicción para todos, sin mirar ninguna imagen.";
+  if(st.paso===2) return "Líneas punteadas: el error que comete el promedio. Es la vara de medida.";
+  if(st.paso===3) return "Líneas azules: el error del modelo. ¿Son más cortas que las naranjas?";
+  if(st.soloPromedio) return "Predecir siempre el promedio da R² = 0 exacto: es la línea base.";
+  if(r2<0) return "R² negativo: este modelo se equivoca más que predecir siempre el promedio.";
+  if(Math.abs(r2)<0.03) return "R² casi 0: el modelo empata con la solución ingenua del promedio.";
+  if(Math.abs(st.sesgo)>=100 && st.ruido<=40) return "Puntos alineados pero desplazados: el sesgo baja el R² aunque no haya ruido.";
+  if(r2>=0.95) return "Casi todo sobre la diagonal: el modelo elimina casi todo el error del promedio.";
+  return `El modelo elimina el ${Math.round(r2*100)} % del error que tendría el promedio.`;
+}
+
+/* ===================== EVENTOS ===================== */
+$("noise").addEventListener("input",e=>{st.ruido=+e.target.value; actualizar();});
+$("bias").addEventListener("input",e=>{st.sesgo=+e.target.value; actualizar();});
+$("meanSw").addEventListener("click",()=>{st.soloPromedio=!st.soloPromedio; actualizar();});
+$("btnStep").addEventListener("click",()=>{st.paso = st.paso>=4 ? 0 : st.paso+1; actualizar(false); dibujarPlot();});
+$("btnReset").addEventListener("click",()=>{
+  Object.assign(st,{ruido:RUIDO_INICIAL,sesgo:SESGO_INICIAL,soloPromedio:false,paso:0,retoNeg:false,retoAlto:false});
+  $("noise").value=st.ruido; $("bias").value=st.sesgo; actualizar();});
+const notes=$("notes");
+$("btnNotes").addEventListener("click",()=>{notes.hidden=false; $("btnClose").focus();});
+$("btnClose").addEventListener("click",()=>{notes.hidden=true; $("btnNotes").focus();});
+addEventListener("keydown",e=>{if(e.key==="Escape" && !notes.hidden){notes.hidden=true; $("btnNotes").focus();}});
+
+/* ===================== ESCALADO DEL ESCENARIO ===================== */
+const stage=$("stage");
+function ajustar(){const s=Math.min(innerWidth/1280, innerHeight/720);
+  stage.style.transform=`translate(-50%,-50%) scale(${s})`;}
+addEventListener("resize",ajustar);
+ajustar();
+
+$("noise").value=st.ruido; $("bias").value=st.sesgo;
+actualizar(false);
+</script>
+
+</body></html>

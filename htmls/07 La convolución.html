@@ -1,0 +1,562 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>07 La convolución</title>
+<style>
+/* Escenario fijo 1280×720 escalado: franja superior, visual + panel, franja inferior */
+:root{
+  --fondo:#FAFAF7; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --verde:#2E7D32; --trebol:#8E4EC6; --muerta:#8D6E3F;
+  --panel:#FFFFFF; --vacio:#EEF0F3; --rejilla:rgba(120,120,120,.35);
+  --peso-pos:#DBEAFE; --peso-neg:#FDECD3; --sobre-primario:#FFFFFF;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --positivo:#22C55E; --alerta:#F59E0B; --error:#F87171;
+    --panel:#1F2937; --vacio:#18212F; --rejilla:rgba(160,160,160,.35);
+    --peso-pos:#1E3A5F; --peso-neg:#4A3412; --sobre-primario:#0B1220; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --positivo:#22C55E; --alerta:#F59E0B; --error:#F87171;
+  --panel:#1F2937; --vacio:#18212F; --rejilla:rgba(160,160,160,.35);
+  --peso-pos:#1E3A5F; --peso-neg:#4A3412; --sobre-primario:#0B1220; color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+*{box-sizing:border-box}
+.escenario{position:fixed;left:50%;top:50%;width:1280px;height:720px;transform-origin:center center;
+  transform:translate(-50%,-50%);display:grid;grid-template-rows:72px 500px 80px;row-gap:14px;padding:16px 20px 24px}
+/* Franja superior */
+.cabecera h1{margin:0;font-size:26px;line-height:34px;font-weight:700;letter-spacing:-.01em}
+.cabecera h1 .num{color:var(--primario);font-family:var(--mono);margin-right:10px}
+.cabecera p{margin:6px 0 0;font-size:16px;line-height:22px;color:var(--tinta-suave);white-space:nowrap}
+/* Zona central */
+.centro{display:grid;grid-template-columns:820px 400px;column-gap:20px;min-height:0}
+.caja{background:var(--panel);border:2px solid var(--linea);border-radius:8px}
+.visual{padding:12px 16px;display:grid;grid-template-rows:40px 374px 20px;row-gap:10px}
+.fila-ejemplos{display:flex;align-items:center;gap:8px}
+.etq{font-size:14px;color:var(--tinta-suave);letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+.ilustrativo{margin-left:auto;font-size:14px;color:var(--alerta);border:2px dashed var(--alerta);border-radius:8px;padding:6px 10px;line-height:18px}
+button{font:inherit;font-size:15px;color:var(--tinta);background:var(--panel);border:2px solid var(--linea);
+  border-radius:8px;min-height:40px;padding:0 12px;cursor:pointer;transition:background .3s,border-color .3s,color .3s}
+button:hover{border-color:var(--primario)}
+button[aria-pressed="true"]{background:var(--primario);border-color:var(--primario);color:var(--sobre-primario);font-weight:600}
+button.principal{background:var(--primario);border-color:var(--primario);color:var(--sobre-primario);font-weight:600}
+:focus-visible{outline:3px solid var(--alerta);outline-offset:2px}
+.columnas{display:grid;grid-template-columns:288px 30px 190px 30px 240px;justify-content:space-between;align-items:start}
+.col-etq{height:20px;font-size:14px;color:var(--tinta-suave);letter-spacing:.04em;text-transform:uppercase;font-weight:600;white-space:nowrap}
+.flecha{height:374px;display:flex;align-items:flex-start;justify-content:center;padding-top:150px;color:var(--tinta-suave)}
+svg.rejilla{display:block;touch-action:none;border-radius:4px}
+#svgEntrada{cursor:crosshair}
+#svgSalida{cursor:pointer}
+.lectura{margin-top:4px;height:22px;font-size:14px;font-family:var(--mono);color:var(--tinta);white-space:nowrap;font-variant-numeric:tabular-nums}
+.leyenda{font-size:14px;color:var(--tinta-suave);line-height:18px}
+/* Filtro editable */
+.filtro{display:grid;grid-template-columns:repeat(3,44px);gap:2px;margin:0 0 6px}
+.filtro input{width:44px;height:44px;text-align:center;font-family:var(--mono);font-size:16px;color:var(--tinta);
+  background:var(--panel);border:2px solid var(--linea);border-radius:8px;padding:0;font-variant-numeric:tabular-nums}
+.filtro input.pos{background:var(--peso-pos)}
+.filtro input.neg{background:var(--peso-neg)}
+.filtro input.invalido{border-color:var(--error)}
+.nota{font-size:14px;line-height:20px;color:var(--tinta-suave);margin:0 0 8px;height:40px}
+.vecindario{display:grid;grid-template-columns:repeat(3,32px);gap:2px;margin-bottom:4px}
+.vecindario div{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+  font-size:14px;border-radius:4px;border:1px solid var(--rejilla)}
+.formula{font-size:15px;line-height:20px}
+.formula .res{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--primario);font-variant-numeric:tabular-nums}
+.enfasis{outline:3px dashed var(--alerta);outline-offset:4px;border-radius:6px;transition:outline-color .4s}
+.pie-visual{font-size:14px;color:var(--tinta-suave);line-height:20px}
+/* Columna derecha */
+.panel{display:grid;grid-template-rows:224px 92px 160px;row-gap:12px}
+.controles{padding:12px;display:flex;flex-direction:column;gap:8px}
+.ctrl{display:grid;grid-template-columns:92px 1fr;column-gap:8px;align-items:center;height:44px}
+.ctrl .nom{font-size:15px;font-weight:600;line-height:18px}
+.ctrl .val{font-size:14px;font-family:var(--mono);color:var(--tinta-suave);line-height:18px;font-variant-numeric:tabular-nums}
+.seg{display:flex;gap:4px}
+.seg button{flex:1;padding:0 6px}
+.ventana{display:flex;gap:8px;align-items:center}
+.ventana button{width:108px;flex:none;padding:0 6px}
+input[type=range]{flex:1;height:40px;accent-color:var(--primario);margin:0;cursor:pointer;min-width:0}
+.acciones{display:flex;gap:8px;border-top:2px solid var(--linea);padding-top:10px;margin-top:2px}
+.acciones button{flex:1}
+.observar{padding:12px}
+.observar .t,.reto .t{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);height:18px;line-height:18px}
+.observar .t.paso{color:var(--alerta)}
+.observar p{margin:4px 0 0;font-size:16px;line-height:21px}
+.reto{padding:12px;display:flex;flex-direction:column;gap:6px}
+.reto .cab{display:flex;align-items:center;justify-content:space-between;height:22px}
+.reto p{margin:0;font-size:15px;line-height:21px;height:42px}
+.insignia{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--tinta-suave)}
+.insignia svg circle{fill:none;stroke:var(--linea);stroke-width:2;stroke-dasharray:4 3}
+.insignia svg path{stroke:transparent;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.insignia.ok{color:var(--positivo)}
+.insignia.ok svg circle{fill:var(--positivo);stroke:var(--positivo);stroke-dasharray:none}
+.insignia.ok svg path{stroke:#FFFFFF}
+.barra{display:grid;grid-template-columns:118px 1fr 52px;align-items:center;column-gap:8px;height:20px;font-size:14px}
+.pista{height:12px;border-radius:6px;background:var(--vacio);border:1px solid var(--linea);overflow:hidden}
+.pista i{display:block;height:100%;background:var(--primario);width:0;transition:width .4s}
+.pista.v i{background:repeating-linear-gradient(90deg,var(--tinta-suave) 0 6px,transparent 6px 9px)}
+.barra .n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+/* Franja inferior */
+.pie{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;font-size:15px;line-height:22px}
+.pie div{border-top:2px solid var(--linea);padding-top:8px}
+.pie b{display:block;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:var(--tinta-suave);line-height:18px;margin-bottom:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="escenario" id="escenario">
+  <header class="cabecera">
+    <h1><span class="num">07</span>Convolución: mirar una imagen con una ventana</h1>
+    <p>Una imagen es una tabla de números, y un filtro es una ventanita que se desliza buscando el mismo patrón en todas partes.</p>
+  </header>
+
+  <main class="centro">
+    <!-- VISUAL INTERACTIVO -->
+    <section class="caja visual" aria-label="Visual interactivo de convolución">
+      <div class="fila-ejemplos">
+        <span class="etq">Ejemplos</span>
+        <button id="exVertical" aria-label="Cargar línea vertical">Línea vertical</button>
+        <button id="exDiagonal" aria-label="Cargar diagonal">Diagonal</button>
+        <button id="exMancha" aria-label="Cargar mancha">Mancha</button>
+        <button id="exLimpiar" aria-label="Limpiar la imagen">Limpiar</button>
+        <span class="ilustrativo">Ejemplo ilustrativo</span>
+      </div>
+
+      <div class="columnas">
+        <div id="colEntrada">
+          <div class="col-etq">Imagen 12×12 · pinta aquí</div>
+          <svg id="svgEntrada" class="rejilla" width="288" height="288" viewBox="0 0 288 288" tabindex="0" role="application"
+               aria-label="Imagen de 12 por 12 píxeles. Arrastra para pintar. Con teclado: flechas para moverte, Espacio para pintar."></svg>
+          <div class="lectura" id="lecturaEntrada">Pasa el cursor: valor del píxel</div>
+        </div>
+
+        <div class="flecha" aria-hidden="true">
+          <svg width="28" height="20" viewBox="0 0 28 20"><path d="M2 10H24M17 3l7 7-7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <div id="colFiltro">
+          <div class="col-etq">Filtro 3×3 · editable</div>
+          <div class="filtro" id="filtro"></div>
+          <p class="nota">En la red real, estos 9 pesos los aprende el entrenamiento.</p>
+          <div class="col-etq">Vecindario bajo la ventana</div>
+          <div class="vecindario" id="vecindario" aria-live="polite"></div>
+          <div class="formula" id="formula">Σ píxel × peso<br><span class="res" id="resultado">0</span></div>
+        </div>
+
+        <div class="flecha" aria-hidden="true">
+          <svg width="28" height="20" viewBox="0 0 28 20"><path d="M2 10H24M17 3l7 7-7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <div id="colSalida">
+          <div class="col-etq">Mapa resultante 10×10</div>
+          <svg id="svgSalida" class="rejilla" width="240" height="240" viewBox="0 0 240 240" tabindex="0" role="application"
+               aria-label="Mapa resultante de 10 por 10. Toca o usa flechas para inspeccionar una casilla."></svg>
+          <div class="lectura" id="lecturaSalida">Toca una casilla para inspeccionar</div>
+          <div class="leyenda">Tamaño y color = fuerza de la respuesta (sin signo). La ventana cabe en 10×10 posiciones.</div>
+        </div>
+      </div>
+
+      <div class="pie-visual">Versión simplificada: un solo canal de grises. Una foto a color trae 3 tablas (rojo, verde, azul).</div>
+    </section>
+
+    <!-- PANEL DERECHO -->
+    <aside class="panel">
+      <div class="caja controles">
+        <div class="ctrl">
+          <div><div class="nom">1 · Pincel</div><div class="val" id="valPincel">valor 255</div></div>
+          <div class="seg" role="group" aria-label="Modo del pincel">
+            <button id="pPintar" aria-pressed="true" aria-label="Pincel pintar, valor 255">Pintar</button>
+            <button id="pBorrar" aria-pressed="false" aria-label="Pincel borrar, valor 0">Borrar</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div><div class="nom">2 · Filtro</div><div class="val" id="valFiltro">vertical</div></div>
+          <div class="seg" role="group" aria-label="Filtro predefinido">
+            <button id="fV" aria-pressed="true">Vertical</button>
+            <button id="fH" aria-pressed="false">Horizontal</button>
+            <button id="fB" aria-pressed="false">Desenfoque</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div><div class="nom">3 · Ventana</div><div class="val" id="valVentana">100 / 100</div></div>
+          <div class="ventana">
+            <button id="bDeslizar" class="principal" aria-label="Deslizar la ventana por la imagen">Deslizar ▶</button>
+            <input type="range" id="rPos" min="1" max="100" value="100" aria-label="Posición de la ventana">
+          </div>
+        </div>
+        <div class="acciones">
+          <button id="bPaso" aria-label="Recorrer la idea paso a paso">Paso a paso ▶</button>
+          <button id="bReiniciar">Reiniciar</button>
+        </div>
+      </div>
+
+      <div class="caja observar" aria-live="polite">
+        <div class="t" id="obsTitulo">Qué observar</div>
+        <p id="obsTexto"></p>
+      </div>
+
+      <div class="caja reto">
+        <div class="cab">
+          <div class="t">Reto</div>
+          <div class="insignia" id="insignia">
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>
+            <span id="insigniaTxt">Pendiente</span>
+          </div>
+        </div>
+        <p>Dibuja una forma que haga brillar el mapa con el filtro horizontal y se apague con el vertical.</p>
+        <div class="barra"><span>Con horizontal</span><div class="pista"><i id="barH"></i></div><span class="n" id="numH">0.0</span></div>
+        <div class="barra"><span>Con vertical</span><div class="pista v"><i id="barV"></i></div><span class="n" id="numV">0.0</span></div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="pie">
+    <div><b>Analogía en sistemas</b>Como una expresión regular en 2D o una ventana deslizante sobre un log: la misma regla se aplica en cada posición.</div>
+    <div><b>En el campo</b>Las briznas de pasto son bordes casi verticales; un filtro así las hace destacar sobre el suelo.</div>
+  </footer>
+</div>
+
+<script>
+/* ===================== CONSTANTES ===================== */
+const N = 12;                 // lado de la imagen
+const K = 3;                  // lado del filtro
+const M = N - K + 1;          // lado del mapa (sin relleno): 10
+const CELDA_IN = 24;          // px por píxel de entrada
+const CELDA_OUT = 24;         // px por casilla de salida
+const PASO_MS = 45;           // velocidad de la animación "Deslizar"
+const IDX_INICIAL = 43;       // posición fija de inspección inicial (fila 4, col 3)
+const PRESETS = {
+  v: [-1,0,1, -1,0,1, -1,0,1],
+  h: [-1,-1,-1, 0,0,0, 1,1,1],
+  b: Array(9).fill(1/9)
+};
+const NOMBRES = { v:'vertical', h:'horizontal', b:'desenfoque', c:'propio' };
+const SVGNS = 'http://www.w3.org/2000/svg';
+const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===================== ESTADO ===================== */
+let img = new Array(N*N).fill(0);
+let pesos = PRESETS.v.slice();
+let pincel = 255;
+let pos = M*M;                // cuántas posiciones ya calculó la ventana (1..100)
+let fijo = IDX_INICIAL;       // casilla inspeccionada cuando el mapa está completo
+let hoverOut = null;          // casilla bajo el cursor en el mapa
+let animando = false, ultimoT = 0, rafId = 0;
+let paso = 0;                 // 0 = fuera del modo paso a paso
+let cursorIn = { r: 5, c: 5 }, tecladoIn = false;
+
+/* ===================== IMÁGENES DE EJEMPLO ===================== */
+function ejemplo(tipo){
+  const a = new Array(N*N).fill(0);
+  if (tipo === 'vertical') for (let r=1; r<=10; r++) a[r*N+5] = 255;
+  if (tipo === 'diagonal') for (let i=1; i<=10; i++) a[i*N+i] = 255;
+  if (tipo === 'mancha') {
+    for (let r=0; r<N; r++) for (let c=0; c<N; c++){
+      const d = Math.hypot(r-6, c-5.5);
+      a[r*N+c] = Math.round(255*Math.max(0, Math.min(1, (4 - d)/2.2)));
+    }
+  }
+  return a;
+}
+
+/* ===================== CÁLCULO REAL ===================== */
+// Correlación 2D "válida": la ventana 3×3 se coloca en cada una de las 10×10 posiciones
+function convolucionar(imagen, w){
+  const out = new Array(M*M);
+  for (let r=0; r<M; r++) for (let c=0; c<M; c++){
+    let s = 0;
+    for (let i=0; i<K; i++) for (let j=0; j<K; j++) s += imagen[(r+i)*N + (c+j)] * w[i*K+j];
+    out[r*M+c] = s;
+  }
+  return out;
+}
+// "Brillo total": suma de |respuesta| medida en casillas totalmente encendidas (máx. 765)
+const energia = (imagen, w) => convolucionar(imagen, w).reduce((t,v)=>t+Math.abs(v),0) / 765;
+function tipoFiltro(){
+  for (const k of ['v','h','b']) if (PRESETS[k].every((x,i)=>Math.abs(x-pesos[i])<1e-6)) return k;
+  return 'c';
+}
+function fmt(v){
+  const r = Math.round(v*10)/10;
+  const s = Number.isInteger(r) ? String(Math.abs(r)) : Math.abs(r).toFixed(1);
+  return (r < 0 ? '−' : '') + s;
+}
+const fmtPeso = v => Number.isInteger(v) ? fmt(v) : (Math.abs(v-1/9)<1e-6 ? '0.11' : fmt(Math.round(v*100)/100));
+
+/* ===================== CONSTRUCCIÓN DEL DOM ===================== */
+const $ = id => document.getElementById(id);
+const svgIn = $('svgEntrada'), svgOut = $('svgSalida');
+const rectsIn = [], celdasOut = [], cuadrosOut = [], puntosOut = [];
+
+function el(tag, attrs, padre){
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  padre.appendChild(e); return e;
+}
+for (let r=0; r<N; r++) for (let c=0; c<N; c++)
+  rectsIn.push(el('rect', {x:c*CELDA_IN, y:r*CELDA_IN, width:CELDA_IN, height:CELDA_IN, fill:'#000', stroke:'var(--rejilla)', 'stroke-width':1}, svgIn));
+const cursorRect = el('rect', {width:CELDA_IN-2, height:CELDA_IN-2, fill:'none', stroke:'var(--alerta)', 'stroke-width':2, 'stroke-dasharray':'4 3', rx:3, visibility:'hidden'}, svgIn);
+const ventanaRect = el('rect', {width:K*CELDA_IN, height:K*CELDA_IN, fill:'none', stroke:'var(--primario)', 'stroke-width':3, rx:4}, svgIn);
+const ventanaHalo = el('rect', {width:K*CELDA_IN+6, height:K*CELDA_IN+6, fill:'none', stroke:'var(--panel)', 'stroke-width':2, rx:6}, svgIn);
+svgIn.insertBefore(ventanaHalo, ventanaRect);
+
+for (let r=0; r<M; r++) for (let c=0; c<M; c++){
+  celdasOut.push(el('rect', {x:c*CELDA_OUT, y:r*CELDA_OUT, width:CELDA_OUT, height:CELDA_OUT, fill:'var(--panel)', stroke:'var(--linea)', 'stroke-width':1}, svgOut));
+  cuadrosOut.push(el('rect', {fill:'var(--primario)', rx:2}, svgOut));
+  puntosOut.push(el('circle', {cx:c*CELDA_OUT+CELDA_OUT/2, cy:r*CELDA_OUT+CELDA_OUT/2, r:1.6, fill:'var(--tinta-suave)'}, svgOut));
+}
+const marcaOut = el('rect', {width:CELDA_OUT, height:CELDA_OUT, fill:'none', stroke:'var(--primario)', 'stroke-width':3, rx:3}, svgOut);
+
+// Filtro editable
+const inputsFiltro = [];
+for (let i=0; i<9; i++){
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.id = 'peso'+i;
+  inp.setAttribute('aria-label', `Peso fila ${Math.floor(i/3)+1}, columna ${i%3+1}`);
+  inp.addEventListener('input', () => {
+    const v = parseFloat(inp.value.replace(',', '.').replace('−','-'));
+    if (isNaN(v)) { inp.classList.add('invalido'); return; }
+    inp.classList.remove('invalido');
+    pesos[i] = Math.max(-10, Math.min(10, v));
+    actualizar(false);
+  });
+  inp.addEventListener('blur', () => { inp.classList.remove('invalido'); pintarFiltro(); });
+  $('filtro').appendChild(inp); inputsFiltro.push(inp);
+}
+const celdasVec = [];
+for (let i=0; i<9; i++){ const d = document.createElement('div'); $('vecindario').appendChild(d); celdasVec.push(d); }
+
+/* ===================== RENDER ===================== */
+function indiceVentana(){
+  if (hoverOut !== null) return hoverOut;
+  return pos < M*M ? pos-1 : fijo;
+}
+function pintarFiltro(){
+  inputsFiltro.forEach((inp,i) => {
+    if (document.activeElement !== inp) inp.value = fmtPeso(pesos[i]);
+    inp.classList.toggle('pos', pesos[i] > 0);
+    inp.classList.toggle('neg', pesos[i] < 0);
+  });
+}
+function actualizar(redibujarFiltro = true){
+  const out = convolucionar(img, pesos);
+  const maxPosible = 255 * pesos.reduce((t,w)=>t+Math.abs(w),0) || 1;
+
+  // Entrada
+  img.forEach((v,i) => rectsIn[i].setAttribute('fill', `rgb(${v},${v},${v})`));
+  const idx = indiceVentana(), wr = Math.floor(idx/M), wc = idx%M;
+  ventanaRect.setAttribute('x', wc*CELDA_IN); ventanaRect.setAttribute('y', wr*CELDA_IN);
+  ventanaHalo.setAttribute('x', wc*CELDA_IN-3); ventanaHalo.setAttribute('y', wr*CELDA_IN-3);
+  cursorRect.setAttribute('x', cursorIn.c*CELDA_IN+1); cursorRect.setAttribute('y', cursorIn.r*CELDA_IN+1);
+  cursorRect.setAttribute('visibility', tecladoIn ? 'visible' : 'hidden');
+
+  // Salida: solo las posiciones ya recorridas
+  for (let i=0; i<M*M; i++){
+    const hecho = i < pos;
+    celdasOut[i].setAttribute('fill', hecho ? 'var(--panel)' : 'var(--vacio)');
+    puntosOut[i].setAttribute('visibility', hecho ? 'hidden' : 'visible');
+    const m = hecho ? Math.min(1, Math.abs(out[i]) / maxPosible) : 0;
+    if (m > 0.02){
+      const lado = CELDA_OUT * (0.3 + 0.62*m), r = Math.floor(i/M), c = i%M;
+      cuadrosOut[i].setAttribute('x', c*CELDA_OUT + (CELDA_OUT-lado)/2);
+      cuadrosOut[i].setAttribute('y', r*CELDA_OUT + (CELDA_OUT-lado)/2);
+      cuadrosOut[i].setAttribute('width', lado); cuadrosOut[i].setAttribute('height', lado);
+      cuadrosOut[i].setAttribute('opacity', (0.3 + 0.7*m).toFixed(2));
+      cuadrosOut[i].setAttribute('visibility', 'visible');
+    } else cuadrosOut[i].setAttribute('visibility', 'hidden');
+  }
+  marcaOut.setAttribute('x', wc*CELDA_OUT); marcaOut.setAttribute('y', wr*CELDA_OUT);
+
+  // Vecindario y fórmula
+  for (let i=0; i<K; i++) for (let j=0; j<K; j++){
+    const v = img[(wr+i)*N + (wc+j)], d = celdasVec[i*K+j];
+    d.textContent = v; d.style.background = `rgb(${v},${v},${v})`; d.style.color = v > 140 ? '#111' : '#FFF';
+  }
+  $('resultado').textContent = '= ' + fmt(out[idx]);
+  $('lecturaSalida').textContent = idx < pos || hoverOut !== null
+    ? `Casilla (f${wr+1}, c${wc+1}) = ${fmt(out[idx])}` : 'Aún no calculada';
+
+  if (redibujarFiltro) pintarFiltro();
+
+  // Controles
+  const tf = tipoFiltro();
+  $('valFiltro').textContent = NOMBRES[tf];
+  $('fV').setAttribute('aria-pressed', tf==='v'); $('fH').setAttribute('aria-pressed', tf==='h'); $('fB').setAttribute('aria-pressed', tf==='b');
+  $('valVentana').textContent = `${pos} / ${M*M}`;
+  $('rPos').value = pos;
+  $('bDeslizar').textContent = animando ? 'Pausar ❚❚' : 'Deslizar ▶';
+  $('valPincel').textContent = `valor ${pincel}`;
+
+  // Reto: se mide con los dos filtros de borde, sobre la imagen actual
+  const eH = energia(img, PRESETS.h), eV = energia(img, PRESETS.v);
+  const escala = Math.max(eH, eV, 10);
+  $('barH').style.width = (100*eH/escala).toFixed(1) + '%';
+  $('barV').style.width = (100*eV/escala).toFixed(1) + '%';
+  $('numH').textContent = eH.toFixed(1); $('numV').textContent = eV.toFixed(1);
+  const logrado = eH >= 6 && eV <= 0.35*eH;
+  $('insignia').classList.toggle('ok', logrado);
+  $('insigniaTxt').textContent = logrado ? '¡Logrado!' : 'Pendiente';
+
+  // Qué observar (o texto del paso)
+  if (paso === 0){
+    $('obsTitulo').textContent = 'Qué observar'; $('obsTitulo').classList.remove('paso');
+    $('obsTexto').textContent = fraseObservar(tf, eH, eV);
+  }
+}
+function fraseObservar(tf, eH, eV){
+  if (img.every(v=>v===0)) return 'Imagen vacía: pinta unos píxeles o carga un ejemplo.';
+  if (animando) return 'La ventana avanza fila por fila; cada posición llena una casilla del mapa.';
+  if (tf === 'b') return 'El desenfoque promedia 9 vecinos: no busca un borde, suaviza la imagen.';
+  if (tf === 'c') return 'Filtro propio: el mapa brilla donde el vecindario se parece a tus pesos.';
+  if (eH + eV < 0.5) return 'Sin bordes no hay respuesta: una zona pareja da cero con este filtro.';
+  const vert = eV > 2*eH, hori = eH > 2*eV;
+  if (tf === 'v'){
+    if (vert) return 'La línea vertical se enciende: el filtro encontró su patrón a ambos lados.';
+    if (hori) return 'Con el filtro vertical, la forma horizontal casi desaparece del mapa.';
+    return 'Forma mezclada: el filtro vertical solo responde a sus tramos verticales.';
+  }
+  if (hori) return 'La forma horizontal se enciende: este filtro busca cambios de arriba a abajo.';
+  if (vert) return 'Con el filtro horizontal, la línea vertical casi desaparece. Prueba el otro.';
+  return 'Forma mezclada: el filtro horizontal solo responde a sus tramos horizontales.';
+}
+
+/* ===================== PINTAR (mouse, táctil, teclado) ===================== */
+let pintando = false;
+function celdaDesde(e, svg, n){
+  const b = svg.getBoundingClientRect();
+  const c = Math.floor((e.clientX - b.left) / b.width * n), r = Math.floor((e.clientY - b.top) / b.height * n);
+  return (r<0||c<0||r>=n||c>=n) ? null : { r, c };
+}
+function pintarEn(cel){
+  if (!cel) return;
+  const i = cel.r*N + cel.c;
+  if (img[i] !== pincel){ img[i] = pincel; actualizar(false); }
+}
+svgIn.addEventListener('pointerdown', e => {
+  e.preventDefault(); salirPaso(); pintando = true; tecladoIn = false;
+  svgIn.setPointerCapture(e.pointerId); pintarEn(celdaDesde(e, svgIn, N));
+});
+svgIn.addEventListener('pointermove', e => {
+  const cel = celdaDesde(e, svgIn, N);
+  if (cel) $('lecturaEntrada').textContent = `Píxel (f${cel.r+1}, c${cel.c+1}) = ${img[cel.r*N+cel.c]}`;
+  if (pintando) pintarEn(cel);
+});
+const soltar = () => { pintando = false; };
+svgIn.addEventListener('pointerup', soltar); svgIn.addEventListener('pointercancel', soltar);
+svgIn.addEventListener('pointerleave', () => { if (!pintando) $('lecturaEntrada').textContent = 'Pasa el cursor: valor del píxel'; });
+svgIn.addEventListener('focus', () => { tecladoIn = true; actualizar(false); });
+svgIn.addEventListener('blur', () => { tecladoIn = false; actualizar(false); });
+svgIn.addEventListener('keydown', e => {
+  const d = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] }[e.key];
+  if (d){ cursorIn.r = Math.max(0,Math.min(N-1,cursorIn.r+d[0])); cursorIn.c = Math.max(0,Math.min(N-1,cursorIn.c+d[1])); e.preventDefault(); }
+  else if (e.key === ' ' || e.key === 'Enter'){ salirPaso(); const i = cursorIn.r*N+cursorIn.c; img[i] = img[i] === pincel ? (pincel ? 0 : 255) : pincel; e.preventDefault(); }
+  else return;
+  $('lecturaEntrada').textContent = `Píxel (f${cursorIn.r+1}, c${cursorIn.c+1}) = ${img[cursorIn.r*N+cursorIn.c]}`;
+  actualizar(false);
+});
+
+/* ===================== INSPECCIONAR EL MAPA ===================== */
+svgOut.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  const cel = celdaDesde(e, svgOut, M); hoverOut = cel ? cel.r*M+cel.c : null; actualizar(false);
+});
+svgOut.addEventListener('pointerleave', () => { hoverOut = null; actualizar(false); });
+svgOut.addEventListener('pointerdown', e => {
+  const cel = celdaDesde(e, svgOut, M); if (!cel) return;
+  detener(); fijo = cel.r*M+cel.c; pos = M*M; hoverOut = null; actualizar(false);
+});
+svgOut.addEventListener('keydown', e => {
+  const d = { ArrowUp:-M, ArrowDown:M, ArrowLeft:-1, ArrowRight:1 }[e.key];
+  if (d === undefined) return;
+  e.preventDefault(); detener(); pos = M*M;
+  const r = Math.floor(fijo/M), c = fijo%M;
+  if ((d===-1 && c===0) || (d===1 && c===M-1)) return;
+  fijo = Math.max(0, Math.min(M*M-1, fijo+d)); actualizar(false);
+});
+
+/* ===================== FILTRO Y PINCEL ===================== */
+function ponerFiltro(k){ pesos = PRESETS[k].slice(); actualizar(); }
+$('fV').onclick = () => ponerFiltro('v');
+$('fH').onclick = () => ponerFiltro('h');
+$('fB').onclick = () => ponerFiltro('b');
+function ponerPincel(v){
+  pincel = v; $('pPintar').setAttribute('aria-pressed', v===255); $('pBorrar').setAttribute('aria-pressed', v===0); actualizar(false);
+}
+$('pPintar').onclick = () => ponerPincel(255);
+$('pBorrar').onclick = () => ponerPincel(0);
+function cargar(tipo){ salirPaso(); img = tipo ? ejemplo(tipo) : new Array(N*N).fill(0); actualizar(false); }
+$('exVertical').onclick = () => cargar('vertical');
+$('exDiagonal').onclick = () => cargar('diagonal');
+$('exMancha').onclick = () => cargar('mancha');
+$('exLimpiar').onclick = () => cargar(null);
+
+/* ===================== DESLIZAR LA VENTANA ===================== */
+function bucle(t){
+  if (!animando) return;
+  if (t - ultimoT >= PASO_MS){
+    ultimoT = t; pos++;
+    if (pos >= M*M){ pos = M*M; fijo = M*M-1; animando = false; }
+    actualizar(false);
+  }
+  if (animando) rafId = requestAnimationFrame(bucle);
+}
+function detener(){ animando = false; cancelAnimationFrame(rafId); }
+$('bDeslizar').onclick = () => {
+  if (animando){ detener(); fijo = pos-1; actualizar(false); return; }
+  if (reducido){                 // sin movimiento continuo: avanza una fila por clic
+    pos = pos >= M*M ? M : Math.min(M*M, pos + M); fijo = pos-1; actualizar(false); return;
+  }
+  if (pos >= M*M) pos = 1;
+  animando = true; ultimoT = 0; actualizar(false); rafId = requestAnimationFrame(bucle);
+};
+$('rPos').addEventListener('input', e => { detener(); pos = +e.target.value; fijo = pos-1; actualizar(false); });
+
+/* ===================== PASO A PASO ===================== */
+const PASOS = [
+  { txt:'La imagen son números: 0 es negro, 255 es blanco.', foco:['colEntrada','vecindario'] },
+  { txt:'La ventana 3×3 mira solo un vecindario de 9 píxeles.', foco:['colEntrada'] },
+  { txt:'Multiplica cada píxel por su peso del filtro y suma todo.', foco:['filtro','formula'] },
+  { txt:'Ese número dice si aquí está el patrón; repetido en cada posición, forma el mapa.', foco:['colSalida'] }
+];
+function limpiarFoco(){ document.querySelectorAll('.enfasis').forEach(n=>n.classList.remove('enfasis')); }
+function salirPaso(){
+  if (!paso) return;
+  paso = 0; limpiarFoco(); $('bPaso').textContent = 'Paso a paso ▶'; actualizar(false);
+}
+$('bPaso').onclick = () => {
+  if (paso === PASOS.length){ salirPaso(); return; }
+  detener(); paso++;
+  if (paso === 1 && img.every(v=>v===0)) img = ejemplo('vertical');
+  if (paso === 1 || paso === 2 || paso === 3){ pos = IDX_INICIAL+1; fijo = IDX_INICIAL; }
+  if (paso === 4) pos = M*M;
+  limpiarFoco(); PASOS[paso-1].foco.forEach(id => $(id).classList.add('enfasis'));
+  $('obsTitulo').textContent = `Paso ${paso} de ${PASOS.length}`; $('obsTitulo').classList.add('paso');
+  $('obsTexto').textContent = PASOS[paso-1].txt;
+  $('bPaso').textContent = paso === PASOS.length ? 'Terminar ■' : `Siguiente ▶ (${paso+1}/4)`;
+  actualizar(false);
+};
+
+/* ===================== REINICIAR ===================== */
+function reiniciar(){
+  detener(); paso = 0; limpiarFoco(); $('bPaso').textContent = 'Paso a paso ▶';
+  img = ejemplo('vertical'); pesos = PRESETS.v.slice(); pos = M*M; fijo = IDX_INICIAL; hoverOut = null;
+  ponerPincel(255); actualizar();
+}
+$('bReiniciar').onclick = reiniciar;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') salirPaso(); });
+
+/* ===================== ESCALADO DEL ESCENARIO ===================== */
+function ajustar(){
+  const s = Math.min(window.innerWidth/1280, window.innerHeight/720);
+  $('escenario').style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+window.addEventListener('resize', ajustar);
+ajustar();
+reiniciar();
+</script>
+
+</body></html>

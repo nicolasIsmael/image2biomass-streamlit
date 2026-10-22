@@ -1,119 +1,131 @@
-"""Contenido editorial de los conceptos de Deep Learning interactivos (User Story 2).
+"""Catálogo de los 10 conceptos de Deep Learning, cada uno un HTML interactivo de una
+sola ventana (carpeta htmls/) en orden pedagógico: neurona -> R² vs promedio.
 
-No es un artefacto experimental (no vive en data/): es contenido curado a mano, cada
-uno con su control interactivo y su conexión explícita a los datos/hechos reales del
-proyecto (FR-004). Los controles que simulan un valor (ej. épocas) se etiquetan como
-simulación pedagógica -- nunca se presentan como el valor real usado en el
-entrenamiento, salvo que ese valor provenga de un artefacto real.
+No es un artefacto experimental (no vive en data/): es contenido curado a mano. Cada
+concepto trae un vínculo con el proyecto real (FR-004). Los hechos que dependen de
+resultados (folds, familias, R²) se calculan desde data/fold_results.csv cuando está
+disponible; si no, se muestra un texto genérico sin cifras -- nunca datos simulados
+(Principio VI).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
-ControlType = Literal["slider", "select", "button"]
+import pandas as pd
 
 
-@dataclass
+@dataclass(frozen=True)
 class DLConcept:
     concept_id: str
+    number: int
     title: str
-    explanation: str
-    control_type: ControlType
-    control_label: str
-    control_options: tuple
+    html_file: str
     real_project_binding: str
 
 
 CONCEPTS: list[DLConcept] = [
     DLConcept(
-        concept_id="epoca",
-        title="¿Qué es una época?",
-        explanation=(
-            "Una **época** es una pasada completa del modelo por todos los datos de "
-            "entrenamiento. Entrenar varias épocas le da al modelo más oportunidades "
-            "de ajustar sus parámetros, pero demasiadas pueden hacer que memorice en "
-            "vez de generalizar (sobreajuste)."
-        ),
-        control_type="slider",
-        control_label="Número de épocas (simulación pedagógica)",
-        control_options=(1, 50, 1, 10),
+        concept_id="neurona",
+        number=1,
+        title="La neurona",
+        html_file="01 La neurona.html",
         real_project_binding=(
-            "El número real de épocas usado para cada arquitectura de este estudio "
-            "está documentado en el pipeline de entrenamiento, no en este control "
-            "interactivo, que solo ilustra el concepto."
+            "Cada una de las 6 arquitecturas comparadas es, en el fondo, una red de "
+            "unidades como esta, en una versión mucho más grande."
         ),
     ),
     DLConcept(
-        concept_id="validacion_cruzada",
-        title="¿Qué es la validación cruzada (folds)?",
-        explanation=(
-            "En vez de separar los datos una sola vez en entrenamiento/prueba, la "
-            "**validación cruzada** los divide en varias partes (folds) y repite el "
-            "proceso, usando cada parte como prueba una vez. Esto da una evaluación "
-            "más confiable del desempeño real del modelo."
-        ),
-        control_type="slider",
-        control_label="Fold a inspeccionar",
-        control_options=(1, 5, 1, 1),
+        concept_id="capas_profundidad",
+        number=2,
+        title="Capas y profundidad",
+        html_file="02 Capas y profundidad.html",
         real_project_binding=(
-            "Las 357 imágenes reales de este estudio se dividieron exactamente en "
-            "5 folds; mueve el control para ver la partición real de cada uno en la "
+            "Las 6 arquitecturas comparadas son redes profundas: apilan muchas capas "
+            "para reconocer patrones cada vez más complejos en la foto del potrero."
+        ),
+    ),
+    DLConcept(
+        concept_id="error",
+        number=3,
+        title="El error (pérdida)",
+        html_file="03 El error.html",
+        real_project_binding=(
+            "El estudio mide el error de cada modelo con MAE y RMSE por variable "
+            "(Green, Dead, Clover, GDM y Total); los valores reales están en la "
             "sección de Comparación."
         ),
     ),
     DLConcept(
-        concept_id="cnn_vs_transformer",
-        title="CNN vs Transformer vs Híbrido",
-        explanation=(
-            "Una **CNN** aprende patrones locales (bordes, texturas) mediante "
-            "filtros que se deslizan por la imagen. Un **Transformer** analiza la "
-            "imagen completa de una vez, relacionando todas sus partes entre sí. Un "
-            "modelo **Híbrido** combina ambos enfoques."
-        ),
-        control_type="select",
-        control_label="Familia de arquitectura",
-        control_options=("CNN", "Transformer", "Híbrido"),
+        concept_id="colina_error",
+        number=4,
+        title="Aprender: bajar la colina del error",
+        html_file="04 Colina del error.html",
         real_project_binding=(
-            "Las 6 arquitecturas comparadas en este estudio se agrupan exactamente "
-            "en estas 3 familias (ver la sección de Comparación para sus nombres y "
-            "resultados reales)."
+            "Entrenar cada una de las 6 arquitecturas es ajustar sus parámetros, paso "
+            "a paso, para que el error sobre las muestras de entrenamiento baje."
         ),
     ),
     DLConcept(
-        concept_id="backbone_congelado",
-        title="¿Qué es un backbone congelado?",
-        explanation=(
-            "Un **backbone** es la parte del modelo que ya aprendió a reconocer "
-            "patrones visuales generales (entrenada previamente con millones de "
-            "imágenes). 'Congelarlo' significa no modificar esos pesos durante el "
-            "entrenamiento, ahorrando tiempo y evitando sobreajuste con pocos datos."
-        ),
-        control_type="button",
-        control_label="Alternar: backbone congelado / entrenable",
-        control_options=("Congelado", "Entrenable"),
+        concept_id="sobreajuste",
+        number=5,
+        title="Sobreajuste",
+        html_file="05 Sobreajuste.html",
         real_project_binding=(
-            "Con solo 357 muestras reales disponibles, congelar el backbone ayuda a "
-            "que el modelo no memorice el dataset de entrenamiento."
+            "Con solo 357 muestras reales el riesgo de memorizar es alto; por eso cada "
+            "modelo se evalúa siempre sobre muestras que no vio al entrenar."
         ),
     ),
     DLConcept(
-        concept_id="cabeza_regresion",
-        title="¿Qué es la cabeza de regresión?",
-        explanation=(
-            "La **cabeza de regresión** es la última parte del modelo: toma lo que "
-            "el backbone 'vio' en la imagen y lo convierte en números — en este "
-            "caso, valores de biomasa por componente."
-        ),
-        control_type="select",
-        control_label="Variable objetivo a estimar (ejemplo)",
-        control_options=("Green", "Clover", "Dead"),
+        concept_id="validacion_honesta",
+        number=6,
+        title="Validación honesta (fuga de datos)",
+        html_file="06 Validación honesta.html",
         real_project_binding=(
-            "Es multisalida: una sola cabeza produce las 3 variables reales del "
-            "modelo (Green, Clover, Dead) en una sola pasada; Total y GDM se "
-            "derivan de esas 3. La lista completa de variables del dataset se "
-            "muestra en la sección de Dataset."
+            "Las 357 muestras reales se dividieron en 5 folds; cada modelo se evalúa "
+            "en el fold que no usó para entrenar."
+        ),
+    ),
+    DLConcept(
+        concept_id="convolucion",
+        number=7,
+        title="Convolución: mirar una imagen con una ventana",
+        html_file="07 La convolución.html",
+        real_project_binding=(
+            "Las arquitecturas de la familia CNN del estudio aprenden filtros como "
+            "estos; ver la sección de Comparación para sus nombres y resultados."
+        ),
+    ),
+    DLConcept(
+        concept_id="atencion",
+        number=8,
+        title="Atención: decidir a qué mirar",
+        html_file="08 Atención.html",
+        real_project_binding=(
+            "Las arquitecturas de la familia Transformer del estudio usan atención; "
+            "ver la sección de Comparación para sus nombres y resultados."
+        ),
+    ),
+    DLConcept(
+        concept_id="transfer_learning",
+        number=9,
+        title="Transfer learning: no empezar de cero",
+        html_file="09 Transfer learning.html",
+        real_project_binding=(
+            "Con solo 357 muestras reales, reutilizar un backbone preentrenado y "
+            "congelado ayuda a no memorizar el dataset; la cabeza de regresión, "
+            "multisalida, estima Green, Clover y Dead en una sola pasada (Total y GDM "
+            "se derivan de esas 3)."
+        ),
+    ),
+    DLConcept(
+        concept_id="r2_vs_promedio",
+        number=10,
+        title="R²: ¿mejor que adivinar el promedio?",
+        html_file="10 R² vs promedio.html",
+        real_project_binding=(
+            "Los valores reales de Weighted R² de cada arquitectura están en la "
+            "sección de Comparación."
         ),
     ),
 ]
@@ -124,3 +136,45 @@ def get_concept(concept_id: str) -> DLConcept:
         if concept.concept_id == concept_id:
             return concept
     raise KeyError(f"Concepto desconocido: {concept_id}")
+
+
+def _variants_of_family(fold_results: pd.DataFrame, family: str) -> list[str]:
+    rows = fold_results[fold_results["family"] == family]
+    return sorted(rows["variant_name"].unique())
+
+
+def resolve_binding(concept: DLConcept, fold_results: pd.DataFrame | None) -> str:
+    """Vínculo con el proyecto real; usa cifras de fold_results solo si están disponibles."""
+    if fold_results is None or fold_results.empty:
+        return concept.real_project_binding
+
+    if concept.concept_id == "validacion_honesta":
+        sizes = fold_results.groupby("fold_number")["n_samples_val"].first()
+        return (
+            f"Las {int(sizes.sum())} muestras reales se dividieron en {len(sizes)} folds "
+            f"(entre {int(sizes.min())} y {int(sizes.max())} muestras de validación "
+            "cada uno); cada modelo se evalúa en el fold que no usó para entrenar."
+        )
+
+    if concept.concept_id in {"convolucion", "atencion"}:
+        family = "CNN" if concept.concept_id == "convolucion" else "Transformer"
+        names = _variants_of_family(fold_results, family)
+        if names:
+            verb = "aprenden filtros como estos" if family == "CNN" else "usan atención"
+            return (
+                f"{len(names)} de las {fold_results['architecture_id'].nunique()} "
+                f"arquitecturas del estudio son {family} y {verb}: {', '.join(names)}."
+            )
+
+    if concept.concept_id == "r2_vs_promedio" and "weighted_r2" in fold_results.columns:
+        by_arch = fold_results.groupby("variant_name")["weighted_r2"].mean().sort_values()
+        worst, best = by_arch.index[0], by_arch.index[-1]
+        text = (
+            f"Weighted R² medio por arquitectura (5 folds): de {by_arch.iloc[0]:.2f} "
+            f"({worst}) a {by_arch.iloc[-1]:.2f} ({best})."
+        )
+        if by_arch.iloc[0] < 0:
+            text += f" {worst} queda por debajo de simplemente predecir el promedio."
+        return text
+
+    return concept.real_project_binding

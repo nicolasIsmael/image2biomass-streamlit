@@ -1,0 +1,620 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>04 Colina del error</title>
+<style>
+/* Escenario fijo 1280×720: franja superior, visual + panel, franja inferior */
+:root{
+  --fondo:#FAFAF7; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --verde:#2E7D32; --trebol:#8E4EC6; --muerta:#8D6E3F;
+  --superficie:#FFFFFF; --sobre-primario:#FFFFFF; --velo:rgba(250,250,247,.88);
+  --mapa-bajo:#D6ECDD; --mapa-medio:#EEF0D6; --mapa-alto:#F2CC9A; --mapa-linea:#1F2937;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --positivo:#4ADE80; --alerta:#F59E0B; --error:#F87171;
+    --superficie:#1A2232; --sobre-primario:#0B1220; --velo:rgba(17,24,39,.88);
+    --mapa-bajo:#123A28; --mapa-medio:#2B3320; --mapa-alto:#5A3B16; --mapa-linea:#F3F4F6;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --positivo:#4ADE80; --alerta:#F59E0B; --error:#F87171;
+  --superficie:#1A2232; --sobre-primario:#0B1220; --velo:rgba(17,24,39,.88);
+  --mapa-bajo:#123A28; --mapa-medio:#2B3320; --mapa-alto:#5A3B16; --mapa-linea:#F3F4F6;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+*{box-sizing:border-box}
+#escenario{position:absolute;top:0;left:0;width:1280px;height:720px;transform-origin:0 0;
+  display:grid;grid-template-columns:820px 396px;grid-template-rows:72px 500px 80px;
+  column-gap:16px;row-gap:12px;padding:20px 24px;background:var(--fondo)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* Franja superior */
+.cabecera{grid-column:1 / -1;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.cabecera h1{margin:0;font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.cabecera h1 .num{font-family:var(--mono);color:var(--primario);margin-right:10px}
+.cabecera p{margin:0;font-size:16px;color:var(--tinta-suave);white-space:nowrap}
+
+/* Visual */
+.visual{display:grid;grid-template-rows:372px 116px;row-gap:12px;min-width:0}
+.mapa{position:relative;width:820px;height:372px;border-radius:8px;overflow:hidden}
+.mapa::after,.grafica::after{content:"";position:absolute;inset:0;border:2px solid var(--linea);border-radius:8px;pointer-events:none}
+#lienzo{position:absolute;inset:0;width:820px;height:372px;display:block}
+#capa{position:absolute;inset:0;width:820px;height:372px;cursor:crosshair;touch-action:none;outline:none}
+#capa:focus-visible{box-shadow:inset 0 0 0 3px var(--primario)}
+.etq{position:absolute;font-size:14px;background:var(--velo);border-radius:6px;padding:3px 8px;pointer-events:none;line-height:1.3}
+#lectura{top:10px;left:10px;font-size:15px;font-family:var(--mono);font-variant-numeric:tabular-nums;transition:box-shadow .3s}
+.leyenda{top:10px;right:10px;display:flex;align-items:center;gap:8px}
+.leyenda i{display:block;width:96px;height:12px;border-radius:3px;border:1px solid var(--linea);
+  background:linear-gradient(90deg,var(--mapa-bajo),var(--mapa-medio),var(--mapa-alto))}
+.ejemplo{bottom:10px;left:10px;color:var(--tinta-suave)}
+.pista{bottom:10px;right:10px;color:var(--tinta-suave)}
+.eje-x{bottom:38px;right:12px;color:var(--tinta-suave);background:none;padding:0}
+.eje-y{top:44px;left:12px;color:var(--tinta-suave);background:none;padding:0}
+.grafica{position:relative;width:820px;height:116px;border-radius:8px;background:var(--superficie)}
+#grafica{display:block;width:820px;height:116px}
+
+/* Panel derecho */
+.panel{display:grid;grid-template-rows:240px 108px 128px;row-gap:12px;min-width:0}
+.tarjeta{background:var(--superficie);border:2px solid var(--linea);border-radius:8px;padding:12px 16px;min-width:0}
+.tarjeta h2{margin:0 0 6px;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-suave);font-weight:700}
+.controles{display:flex;flex-direction:column;gap:8px}
+.fila-et{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+.fila-et b{font-family:var(--mono);font-size:17px;color:var(--primario)}
+input[type=range]{width:100%;height:28px;margin:0;accent-color:var(--primario);cursor:pointer}
+input[type=range]:focus-visible{outline:3px solid var(--primario);outline-offset:2px;border-radius:4px}
+.extremos{display:flex;justify-content:space-between;font-size:14px;color:var(--tinta-suave);margin-top:-4px}
+.formula{font-size:14px;color:var(--tinta-suave);line-height:1.35}
+.formula .mono{display:block;font-size:15px;color:var(--tinta)}
+.botones{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.botones.dos{grid-template-columns:1fr 1fr}
+button{font:inherit;font-size:15px;min-height:40px;border-radius:8px;border:2px solid var(--linea);
+  background:var(--superficie);color:var(--tinta);cursor:pointer;padding:0 10px;font-weight:600}
+button:hover{border-color:var(--primario)}
+button:focus-visible{outline:3px solid var(--primario);outline-offset:2px}
+button.prim{background:var(--primario);border-color:var(--primario);color:var(--sobre-primario)}
+button[aria-pressed="true"]{border-color:var(--primario);box-shadow:inset 0 0 0 1px var(--primario)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.observar p{margin:0;font-size:16px;line-height:1.4}
+.observar.guia{border-color:var(--primario)}
+.reto p{margin:0 0 8px;font-size:15px;line-height:1.35}
+.checks{display:flex;gap:12px;font-size:14px;flex-wrap:nowrap}
+.chk{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.ico{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:2px solid var(--linea);
+  font-size:12px;font-weight:800;color:var(--tinta-suave);line-height:1}
+.chk.ok .ico{border-color:var(--positivo);background:var(--positivo);color:var(--sobre-primario)}
+.chk.mal .ico{border-color:var(--error);color:var(--error);border-radius:4px}
+.reto{position:relative}
+.reto.logrado{border-color:var(--positivo)}
+.insignia{position:absolute;top:10px;right:12px;font-size:14px;font-weight:700;color:var(--positivo);
+  border:2px solid var(--positivo);border-radius:999px;padding:1px 10px}
+
+/* Franja inferior */
+.pie{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:24px;border-top:2px solid var(--linea);padding-top:10px}
+.pie p{margin:0;font-size:15px;line-height:1.4}
+.pie strong{display:block;font-size:14px;color:var(--tinta-suave);letter-spacing:.06em;text-transform:uppercase}
+
+/* Resaltado del paso a paso */
+.resalta{animation:pulso 1.2s ease-in-out infinite}
+@keyframes pulso{50%{opacity:.35}}
+#lectura.resalta-lectura{box-shadow:0 0 0 3px var(--primario)}
+@media (prefers-reduced-motion: reduce){
+  .resalta{animation:none}
+  #lectura{transition:none}
+}
+</style>
+
+<div id="escenario">
+  <header class="cabecera">
+    <h1><span class="num">04</span>Aprender: bajar la colina del error</h1>
+    <p>Aprender es ajustar los parámetros paso a paso hacia donde más baja el error, como bajar una colina a ciegas.</p>
+  </header>
+
+  <section class="visual">
+    <div class="mapa">
+      <canvas id="lienzo" aria-hidden="true"></canvas>
+      <svg id="capa" viewBox="0 0 820 372" tabindex="0" role="img"
+           aria-label="Mapa de error de dos parámetros. Clic o flechas del teclado para mover el punto de partida.">
+        <g id="gFondo"></g><g id="gRastro"></g><g id="gFlecha"></g><g id="gBola"></g>
+      </svg>
+      <div class="etq" id="lectura">Paso 0 · Error 0.00</div>
+      <div class="etq leyenda">Error <span>bajo</span><i></i><span>alto</span></div>
+      <div class="etq eje-y">w₂ ↑</div>
+      <div class="etq eje-x">w₁ →</div>
+      <div class="etq ejemplo">Ejemplo ilustrativo · Versión simplificada: solo 2 parámetros</div>
+      <div class="etq pista">Clic en el mapa: nuevo punto de partida</div>
+    </div>
+    <div class="grafica"><svg id="grafica" viewBox="0 0 820 116" role="img" aria-label="Gráfica del error en cada paso"></svg></div>
+  </section>
+
+  <aside class="panel">
+    <div class="tarjeta controles">
+      <div class="fila-et"><label for="tasa">Tamaño del paso (tasa de aprendizaje)</label><b id="tasaVal">0.030</b></div>
+      <input id="tasa" type="range" min="0" max="1000" step="1" aria-label="Tamaño del paso">
+      <div class="extremos"><span>minúsculo</span><span>enorme</span></div>
+      <div class="formula">Próximo w₁ = actual − tasa × pendiente
+        <span class="mono" id="formula">−3.200 − 0.030 × (−2.91) = −3.113</span></div>
+      <div class="botones">
+        <button id="bPaso" class="prim" aria-label="Dar un paso cuesta abajo">Un paso</button>
+        <button id="bAuto" aria-pressed="false" aria-label="Avanzar automáticamente">Auto ▶</button>
+        <button id="bReini" aria-label="Volver al punto de partida">Reiniciar</button>
+      </div>
+      <div class="botones dos">
+        <button id="bGuia" aria-label="Explicación paso a paso">Paso a paso ▶</button>
+        <button id="bComp" aria-pressed="false" aria-label="Añadir un segundo valle al paisaje">Complicar paisaje</button>
+      </div>
+    </div>
+
+    <div class="tarjeta observar" id="obsCaja" aria-live="polite">
+      <h2 id="obsTitulo">Qué observar</h2>
+      <p id="obsTexto"></p>
+    </div>
+
+    <div class="tarjeta reto" id="retoCaja">
+      <h2>Reto</h2>
+      <span class="insignia" id="insignia" hidden>✓ Logrado</span>
+      <p id="retoTexto">Llega al fondo en menos de 15 pasos sin que el error suba.</p>
+      <div class="checks">
+        <span class="chk" id="cPasos"><span class="ico">○</span><span id="cPasosT" class="mono">0/14 pasos</span></span>
+        <span class="chk" id="cSube"><span class="ico">○</span>No sube</span>
+        <span class="chk" id="cFondo"><span class="ico">○</span>Llega al fondo</span>
+      </div>
+    </div>
+  </aside>
+
+  <footer class="pie">
+    <p><strong>Analogía en sistemas</strong>Como un autoscaler: mide, corrige un poco y vuelve a medir. Corregir de más provoca oscilaciones.</p>
+    <p><strong>En el campo</strong>La recta de la ficha 03 se ajusta así: con muchas fotos de pasto, un paso a la vez.</p>
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   CONSTANTES
+   ========================================================= */
+const DOM = { xmin:-4.4, xmax:4.4, ymin:-2, ymax:2, W:820, H:372 };   // región visible del paisaje
+const PAISAJE = {
+  cx:0.8, cy:-0.2,             // ubicación del fondo (mínimo global)
+  ang:25*Math.PI/180,          // inclinación del valle
+  A:1, B:6,                    // curvatura suave a lo largo del valle, empinada a lo ancho
+  pozo:{ x:-1.92, y:-1.47, prof:3.4, s:0.55 }  // segundo valle (solo en modo complicado)
+};
+const INICIO = { x:-3.2, y:-0.8 };
+const TASA_MIN = 0.002, TASA_MAX = 0.6, TASA_INI = 0.03;
+const UMBRAL_FONDO = 0.05;     // "fondo" = error a menos de esto del mínimo
+const ERROR_MIN_RETO = 3;      // el reto solo cuenta si se parte lejos del fondo
+const LIMITE_RETO = 15;        // "menos de 15 pasos"
+const MAX_PASOS = 60;
+const MS_AUTO = 420, MS_ANIM = 320;
+const BANDA = 0.5;             // separación entre curvas de nivel (en raíz del error)
+
+const reducirMov = window.matchMedia('(prefers-reduced-motion: reduce)');
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+const E = {
+  complejo:false, tasa:TASA_INI, inicio:{...INICIO},
+  camino:[], fmin:0, corriendo:false, temporizador:null,
+  divergio:false, guia:0, retoLogrado:false, tocoTasa:false,
+  anim:null, escala:1
+};
+
+/* =========================================================
+   PAISAJE DE ERROR: función y pendiente (cálculo real)
+   ========================================================= */
+const COS = Math.cos(PAISAJE.ang), SEN = Math.sin(PAISAJE.ang);
+function error(x, y){
+  const dx = x - PAISAJE.cx, dy = y - PAISAJE.cy;
+  const u = COS*dx + SEN*dy, v = -SEN*dx + COS*dy;
+  let r = 0.5*(PAISAJE.A*u*u + PAISAJE.B*v*v);
+  if (E.complejo){
+    const p = PAISAJE.pozo, r2 = (x-p.x)**2 + (y-p.y)**2;
+    r -= p.prof*Math.exp(-r2/(2*p.s*p.s));
+  }
+  return r;
+}
+// Pendiente local (gradiente): hacia dónde sube el error y cuánto
+function pendiente(x, y){
+  const dx = x - PAISAJE.cx, dy = y - PAISAJE.cy;
+  const u = COS*dx + SEN*dy, v = -SEN*dx + COS*dy;
+  let gx = PAISAJE.A*u*COS - PAISAJE.B*v*SEN;
+  let gy = PAISAJE.A*u*SEN + PAISAJE.B*v*COS;
+  if (E.complejo){
+    const p = PAISAJE.pozo, s2 = p.s*p.s;
+    const e = Math.exp(-((x-p.x)**2 + (y-p.y)**2)/(2*s2));
+    gx += p.prof*e*(x-p.x)/s2; gy += p.prof*e*(y-p.y)/s2;
+  }
+  return { x:gx, y:gy };
+}
+// Mínimo global por búsqueda en rejilla (para saber dónde está "el fondo")
+function calcularMinimo(){
+  let m = Infinity;
+  for (let i=0;i<=440;i++) for (let j=0;j<=200;j++){
+    const x = DOM.xmin + (DOM.xmax-DOM.xmin)*i/440, y = DOM.ymin + (DOM.ymax-DOM.ymin)*j/200;
+    m = Math.min(m, error(x,y));
+  }
+  return Math.min(m, error(PAISAJE.cx, PAISAJE.cy));
+}
+
+/* Conversión entre parámetros y píxeles del escenario */
+const aPx = (x,y) => ({ x:(x-DOM.xmin)/(DOM.xmax-DOM.xmin)*DOM.W, y:(DOM.ymax-y)/(DOM.ymax-DOM.ymin)*DOM.H });
+const aPar = (px,py) => ({ x:DOM.xmin + px/DOM.W*(DOM.xmax-DOM.xmin), y:DOM.ymax - py/DOM.H*(DOM.ymax-DOM.ymin) });
+
+/* =========================================================
+   DIBUJO DEL MAPA (canvas, colores por nivel + curvas)
+   ========================================================= */
+function hexARgb(h){
+  h = h.trim().replace('#','');
+  if (h.length===3) h = h.split('').map(c=>c+c).join('');
+  const n = parseInt(h,16); return [n>>16&255, n>>8&255, n&255];
+}
+function dibujarMapa(){
+  const cv = $('lienzo'), cs = getComputedStyle(document.documentElement);
+  const k = Math.min(3, Math.max(1, E.escala*(window.devicePixelRatio||1)));
+  const W = Math.round(DOM.W*k), H = Math.round(DOM.H*k);
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(W,H), d = img.data;
+  const c0 = hexARgb(cs.getPropertyValue('--mapa-bajo')), c1 = hexARgb(cs.getPropertyValue('--mapa-medio'));
+  const c2 = hexARgb(cs.getPropertyValue('--mapa-alto')), cl = hexARgb(cs.getPropertyValue('--mapa-linea'));
+  const NIV_MAX = 7.5;                                    // raíz del error donde el color satura
+  const banda = new Int16Array(W*H);
+  for (let j=0;j<H;j++) for (let i=0;i<W;i++){
+    const p = aPar((i+.5)/k, (j+.5)/k);
+    const niv = Math.sqrt(Math.max(0, error(p.x,p.y) - E.fmin));
+    const b = Math.floor(niv/BANDA); banda[j*W+i] = b;
+    const t = Math.min(1, (b+.5)*BANDA/NIV_MAX);
+    let a, z, q;
+    if (t<.5){ a=c0; z=c1; q=t/.5; } else { a=c1; z=c2; q=(t-.5)/.5; }
+    const o = (j*W+i)*4;
+    d[o]=a[0]+(z[0]-a[0])*q; d[o+1]=a[1]+(z[1]-a[1])*q; d[o+2]=a[2]+(z[2]-a[2])*q; d[o+3]=255;
+  }
+  // Curvas de nivel: borde entre bandas distintas
+  const g = Math.max(1, Math.round(k));
+  for (let j=0;j<H-g;j++) for (let i=0;i<W-g;i++){
+    const b = banda[j*W+i];
+    if (b!==banda[j*W+i+g] || b!==banda[(j+g)*W+i]){
+      const o = (j*W+i)*4, al = .28;
+      d[o]+= (cl[0]-d[o])*al; d[o+1]+= (cl[1]-d[o+1])*al; d[o+2]+= (cl[2]-d[o+2])*al;
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+
+/* =========================================================
+   SVG: ayudantes
+   ========================================================= */
+function el(tag, attrs, estilo){
+  const n = document.createElementNS(NS, tag);
+  for (const a in attrs) n.setAttribute(a, attrs[a]);
+  if (estilo) Object.assign(n.style, estilo);
+  return n;
+}
+const vaciar = g => { while (g.firstChild) g.removeChild(g.firstChild); };
+const fmt = (v, dec=2) => (v<0?'−':'') + Math.abs(v).toFixed(dec);
+
+/* =========================================================
+   DESCENSO POR GRADIENTE (cálculo real, un paso a la vez)
+   ========================================================= */
+function ultimo(){ return E.camino[E.camino.length-1]; }
+function pasos(){ return E.camino.length-1; }
+function enFondo(p){ return p.f - E.fmin < UMBRAL_FONDO; }
+
+function reiniciar(){
+  detenerAuto();
+  E.camino = [{ x:E.inicio.x, y:E.inicio.y, f:error(E.inicio.x,E.inicio.y) }];
+  E.divergio = false; E.anim = null; E.tocoTasa = false;
+  dibujarTodo();
+}
+function darPaso(){
+  if (E.divergio || pasos() >= MAX_PASOS) return false;
+  const p = ultimo(), g = pendiente(p.x, p.y);
+  const nx = p.x - E.tasa*g.x, ny = p.y - E.tasa*g.y;
+  const f = error(nx, ny);
+  if (!isFinite(f) || Math.abs(nx)>1e3 || Math.abs(ny)>1e3){ E.divergio = true; dibujarTodo(); return false; }
+  E.camino.push({ x:nx, y:ny, f });
+  if (Math.abs(nx) > 12 || Math.abs(ny) > 8 || f > 50*E.camino[0].f + 50) E.divergio = true;
+  E.tocoTasa = false;
+  iniciarAnim(p, E.camino[E.camino.length-1]);
+  dibujarTodo();
+  return true;
+}
+function debeParar(){
+  const p = ultimo(), g = pendiente(p.x,p.y);
+  if (E.divergio || pasos() >= MAX_PASOS || enFondo(p)) return true;
+  return Math.hypot(g.x,g.y)*E.tasa < 1e-4;   // atascada: ya casi no se mueve
+}
+function autoTick(){
+  if (!E.corriendo) return;
+  darPaso();
+  if (debeParar()) { detenerAuto(); return; }
+  E.temporizador = setTimeout(autoTick, MS_AUTO);
+}
+function iniciarAuto(){
+  if (E.divergio || pasos() >= MAX_PASOS || enFondo(ultimo())) return;
+  E.corriendo = true; actualizarBotones(); autoTick();
+}
+function detenerAuto(){
+  E.corriendo = false; clearTimeout(E.temporizador); actualizarBotones();
+}
+
+/* Animación de la bolita entre dos puntos */
+function iniciarAnim(de, a){
+  if (reducirMov.matches){ E.anim = null; return; }
+  E.anim = { de, a, t0:performance.now() };
+  requestAnimationFrame(cuadroAnim);
+}
+function cuadroAnim(t){
+  if (!E.anim) return;
+  if (t - E.anim.t0 >= MS_ANIM){ E.anim = null; dibujarCapa(); return; }
+  dibujarCapa(); requestAnimationFrame(cuadroAnim);
+}
+function posVisible(){
+  const p = ultimo();
+  if (!E.anim) return p;
+  const q = Math.min(1, (performance.now()-E.anim.t0)/MS_ANIM), s = 1-Math.pow(1-q,3);
+  return { x:E.anim.de.x + (E.anim.a.x-E.anim.de.x)*s, y:E.anim.de.y + (E.anim.a.y-E.anim.de.y)*s };
+}
+
+/* =========================================================
+   CAPA SVG: fondo, rastro, flecha, bolita
+   ========================================================= */
+function recortar(px){ return { x:Math.max(10, Math.min(DOM.W-10, px.x)), y:Math.max(10, Math.min(DOM.H-10, px.y)) }; }
+function dibujarCapa(){
+  // Marca del fondo
+  const gF = $('gFondo'); vaciar(gF);
+  const m = aPx(PAISAJE.cx, PAISAJE.cy);
+  gF.appendChild(el('path',{d:`M${m.x-7} ${m.y-7}L${m.x+7} ${m.y+7}M${m.x+7} ${m.y-7}L${m.x-7} ${m.y+7}`,'stroke-width':2.5,'stroke-linecap':'round',fill:'none'},{stroke:'var(--tinta)'}));
+  gF.appendChild(el('text',{x:m.x+11,y:m.y+5,'font-size':14,'font-weight':700},{fill:'var(--tinta)'})).textContent = 'fondo';
+
+  // Rastro
+  const gR = $('gRastro'); vaciar(gR);
+  const vis = posVisible(), n = E.camino.length - (E.anim ? 1 : 0);
+  const pts = E.camino.slice(0, n).map(p => aPx(p.x,p.y));
+  pts.push(aPx(vis.x, vis.y));
+  gR.appendChild(el('polyline',{points:pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),fill:'none','stroke-width':2,'stroke-linejoin':'round',opacity:.85},{stroke:'var(--primario)'}));
+  const p0 = aPx(E.camino[0].x, E.camino[0].y);
+  gR.appendChild(el('circle',{cx:p0.x,cy:p0.y,r:8,'stroke-width':2,fill:'none'},{stroke:'var(--tinta)'}));
+  gR.appendChild(el('text',{x:p0.x-10,y:p0.y-13,'font-size':14,'text-anchor':'middle'},{fill:'var(--tinta)'})).textContent = 'inicio';
+  for (let i=1;i<n-0;i++){
+    const q = aPx(E.camino[i].x, E.camino[i].y);
+    const sube = E.camino[i].f > E.camino[i-1].f + 1e-9;
+    if (sube) gR.appendChild(el('rect',{x:q.x-4,y:q.y-4,width:8,height:8},{fill:'var(--error)'}));
+    else gR.appendChild(el('circle',{cx:q.x,cy:q.y,r:3.5},{fill:'var(--primario)'}));
+  }
+
+  // Flecha: el próximo paso real (dirección cuesta abajo, largo = tasa × pendiente)
+  const gA = $('gFlecha'); vaciar(gA);
+  const u = ultimo();
+  if (!E.divergio && !E.anim){
+    const g = pendiente(u.x,u.y);
+    const a = aPx(u.x, u.y), b = aPx(u.x - E.tasa*g.x, u.y - E.tasa*g.y);
+    const L = Math.hypot(b.x-a.x, b.y-a.y);
+    if (L > 1.5){
+      const ang = Math.atan2(b.y-a.y, b.x-a.x), h = Math.min(12, Math.max(7, L*.4));
+      gA.appendChild(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,'stroke-width':2.5,'stroke-dasharray':'6 4'},{stroke:'var(--primario)'}));
+      gA.appendChild(el('path',{d:`M${b.x} ${b.y}L${b.x-h*Math.cos(ang-.45)} ${b.y-h*Math.sin(ang-.45)}L${b.x-h*Math.cos(ang+.45)} ${b.y-h*Math.sin(ang+.45)}Z`},{fill:'var(--primario)'}));
+    } else if (!enFondo(u)) {
+      gA.appendChild(el('circle',{cx:a.x,cy:a.y,r:15,'stroke-width':2,'stroke-dasharray':'3 3',fill:'none'},{stroke:'var(--primario)'}));
+    }
+    if (E.guia===2) gA.classList.add('resalta'); else gA.classList.remove('resalta');
+  }
+
+  // Bolita
+  const gB = $('gBola'); vaciar(gB);
+  const raw = aPx(vis.x, vis.y), fuera = raw.x<0||raw.x>DOM.W||raw.y<0||raw.y>DOM.H, b = recortar(raw);
+  gB.appendChild(el('circle',{cx:b.x,cy:b.y,r:9,'stroke-width':2.5},{fill:fuera?'var(--error)':'var(--primario)',stroke:'var(--fondo)'}));
+  if (fuera) gB.appendChild(el('text',{x:Math.min(DOM.W-120,Math.max(14,b.x-50)),y:b.y<40?b.y+30:b.y-16,'font-size':14,'font-weight':700},{fill:'var(--error)'})).textContent = 'fuera del mapa';
+  if (E.guia===1 || E.guia===3) gB.classList.add('resalta'); else gB.classList.remove('resalta');
+}
+
+/* =========================================================
+   GRÁFICA "ERROR POR PASO"
+   ========================================================= */
+function dibujarGrafica(){
+  const s = $('grafica'); vaciar(s);
+  const X0=56, X1=800, Y0=30, Y1=84;
+  const n = pasos(), nMax = Math.max(LIMITE_RETO, Math.ceil(n/5)*5);
+  const f0 = E.camino[0].f - E.fmin;
+  let yMax = Math.max(f0, ...E.camino.map(p=>p.f-E.fmin).filter(v=>v<=3*f0+1e-9));
+  yMax = yMax>10 ? Math.ceil(yMax/5)*5 : Math.ceil(yMax*2)/2 || 1;
+  const sx = i => X0 + (X1-X0)*i/nMax, sy = v => Y1 - (Y1-Y0)*Math.min(v,yMax)/yMax;
+
+  s.appendChild(el('text',{x:14,y:20,'font-size':14,'font-weight':700},{fill:'var(--tinta)'})).textContent = 'Error por paso';
+  s.appendChild(el('text',{x:136,y:20,'font-size':14},{fill:'var(--tinta-suave)'})).textContent = '(ejemplo ilustrativo)';
+  // Ejes y marcas
+  s.appendChild(el('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,'stroke-width':1.5},{stroke:'var(--linea)'}));
+  s.appendChild(el('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,'stroke-width':1.5},{stroke:'var(--linea)'}));
+  s.appendChild(el('text',{x:X0-8,y:Y0+5,'font-size':14,'text-anchor':'end'},{fill:'var(--tinta-suave)',fontFamily:'var(--mono)'})).textContent = String(yMax);
+  s.appendChild(el('text',{x:X0-8,y:Y1+5,'font-size':14,'text-anchor':'end'},{fill:'var(--tinta-suave)',fontFamily:'var(--mono)'})).textContent = '0';
+  const paso = nMax<=20 ? 5 : 10;
+  for (let i=0;i<=nMax;i+=paso){
+    s.appendChild(el('text',{x:sx(i),y:Y1+22,'font-size':14,'text-anchor':'middle'},{fill:'var(--tinta-suave)',fontFamily:'var(--mono)'})).textContent = String(i);
+  }
+  s.appendChild(el('text',{x:X1,y:20,'font-size':14,'text-anchor':'end'},{fill:'var(--tinta-suave)'})).textContent = 'paso →';
+  // Límite del reto
+  s.appendChild(el('line',{x1:sx(LIMITE_RETO),y1:Y0-6,x2:sx(LIMITE_RETO),y2:Y1,'stroke-width':2,'stroke-dasharray':'4 4'},{stroke:'var(--alerta)'}));
+  s.appendChild(el('text',{x:sx(LIMITE_RETO)-8,y:Y0+4,'font-size':14,'text-anchor':'end'},{fill:'var(--alerta)'})).textContent = 'límite del reto';
+  // Umbral de fondo
+  const yF = sy(UMBRAL_FONDO);
+  s.appendChild(el('line',{x1:X0,y1:yF,x2:X1,y2:yF,'stroke-width':1,'stroke-dasharray':'2 4'},{stroke:'var(--positivo)'}));
+
+  // Serie
+  const pts = E.camino.map((p,i)=>({x:sx(i), y:sy(p.f-E.fmin), v:p.f-E.fmin}));
+  for (let i=1;i<pts.length;i++){
+    const sube = E.camino[i].f > E.camino[i-1].f + 1e-9;
+    s.appendChild(el('line',{x1:pts[i-1].x,y1:pts[i-1].y,x2:pts[i].x,y2:pts[i].y,'stroke-width':2,'stroke-dasharray':sube?'5 3':''},{stroke:sube?'var(--error)':'var(--primario)'}));
+  }
+  pts.forEach((p,i)=>{
+    const sube = i>0 && E.camino[i].f > E.camino[i-1].f + 1e-9;
+    if (sube) s.appendChild(el('path',{d:`M${p.x} ${p.y-6}L${p.x+5} ${p.y+3}L${p.x-5} ${p.y+3}Z`},{fill:'var(--error)'}));
+    else s.appendChild(el('circle',{cx:p.x,cy:p.y,r:3.5},{fill:'var(--primario)'}));
+  });
+}
+
+/* =========================================================
+   TEXTOS DINÁMICOS: lectura, fórmula, "Qué observar", reto
+   ========================================================= */
+const GUIA = [
+  null,
+  'Estamos en un punto: dos parámetros y su error. Mira la lectura arriba.',
+  'Miramos la pendiente bajo nuestros pies. La flecha apunta cuesta abajo.',
+  'Damos un paso cuesta abajo, del tamaño elegido en el deslizador.',
+  'Repetimos hasta que el suelo quede plano: eso es el fondo.'
+];
+function analizar(){
+  const c = E.camino, n = pasos(), u = ultimo();
+  if (E.divergio) return 'Paso enorme: cada salto cae más arriba. El error se dispara.';
+  if (n === 0) return E.tocoTasa
+    ? 'Cambió el paso: la flecha muestra hasta dónde saltaría la bolita.'
+    : `Error inicial ${fmt(u.f-E.fmin)}. Mueve el deslizador y mira la flecha; luego pulsa Un paso.`;
+  if (enFondo(u)) return `Llegó al fondo en ${n} pasos. Ahí la pendiente es casi cero y ya no avanza.`;
+  const g = pendiente(u.x,u.y);
+  if (E.complejo && Math.hypot(g.x,g.y) < 0.05) return 'Atrapada en un valle secundario: solo siente la pendiente local, no ve el mapa.';
+  if (c[n].f > c[n-1].f + 1e-9) return 'Paso grande: la bolita rebota de una ladera a otra y el error sube.';
+  if (n >= 2){
+    const s1 = {x:c[n].x-c[n-1].x, y:c[n].y-c[n-1].y}, s0 = {x:c[n-1].x-c[n-2].x, y:c[n-1].y-c[n-2].y};
+    if (s1.x*s0.x + s1.y*s0.y < 0) return 'Zigzaguea pero baja: el paso es grande, todavía estable.';
+  }
+  const avance = (c[0].f - u.f)/Math.max(1e-9, c[0].f - E.fmin)/n;
+  if (n >= 3 && avance < 0.02) return 'Paso minúsculo: va en la dirección correcta, pero casi no avanza.';
+  if (pasos() >= MAX_PASOS) return 'Muchos pasos sin llegar: prueba otro tamaño de paso.';
+  return 'Baja a buen ritmo: cada paso reduce el error.';
+}
+function evaluarReto(){
+  const c = E.camino, n = pasos();
+  const valido = c[0].f - E.fmin >= ERROR_MIN_RETO;
+  const nuncaSube = c.every((p,i)=> i===0 || p.f <= c[i-1].f + 1e-9);
+  const llego = enFondo(ultimo());
+  const pasosOk = n < LIMITE_RETO;
+  const marcar = (id, estado) => {
+    const e = $(id); e.classList.remove('ok','mal');
+    if (estado) e.classList.add(estado);
+    e.querySelector('.ico').textContent = estado==='ok' ? '✓' : estado==='mal' ? '✗' : '○';
+  };
+  $('cPasosT').textContent = `${n}/14 pasos`;
+  marcar('cPasos', !pasosOk ? 'mal' : (llego && n>0) ? 'ok' : '');
+  marcar('cSube', !nuncaSube ? 'mal' : n>0 ? 'ok' : '');
+  marcar('cFondo', llego && n>0 ? 'ok' : (!pasosOk ? 'mal' : ''));
+  $('retoTexto').textContent = valido
+    ? 'Llega al fondo en menos de 15 pasos sin que el error suba.'
+    : 'Suelta la bolita más lejos del fondo (error ≥ 3) para que el reto cuente.';
+  if (valido && nuncaSube && llego && pasosOk && n>0) E.retoLogrado = true;
+  $('insignia').hidden = !E.retoLogrado;
+  $('retoCaja').classList.toggle('logrado', E.retoLogrado);
+}
+function actualizarTextos(){
+  const u = ultimo();
+  $('lectura').textContent = `Paso ${pasos()} · Error ${fmt(u.f - E.fmin)}`;
+  $('lectura').classList.toggle('resalta-lectura', E.guia===1);
+  const g = pendiente(u.x,u.y);
+  $('formula').textContent = E.divergio ? 'La bolita salió del mapa: pulsa Reiniciar.'
+    : `${fmt(u.x,3)} − ${E.tasa.toFixed(3)} × (${fmt(g.x,2)}) = ${fmt(u.x - E.tasa*g.x,3)}`;
+  $('tasaVal').textContent = E.tasa.toFixed(3);
+  if (E.guia){
+    $('obsTitulo').textContent = `Paso ${E.guia} de 4`;
+    $('obsTexto').textContent = GUIA[E.guia];
+  } else {
+    $('obsTitulo').textContent = 'Qué observar';
+    $('obsTexto').textContent = analizar();
+  }
+  $('obsCaja').classList.toggle('guia', !!E.guia);
+  evaluarReto();
+  actualizarBotones();
+}
+function actualizarBotones(){
+  const fin = E.divergio || pasos() >= MAX_PASOS;
+  $('bPaso').disabled = fin;
+  $('bAuto').textContent = E.corriendo ? 'Pausar ❚❚' : 'Auto ▶';
+  $('bAuto').setAttribute('aria-pressed', String(E.corriendo));
+  $('bAuto').disabled = fin && !E.corriendo;
+  $('bComp').setAttribute('aria-pressed', String(E.complejo));
+  $('bComp').textContent = E.complejo ? 'Paisaje simple' : 'Complicar paisaje';
+  $('bGuia').textContent = E.guia===0 ? 'Paso a paso ▶' : E.guia<4 ? 'Siguiente ▶' : 'Terminar';
+}
+function dibujarTodo(){ dibujarCapa(); dibujarGrafica(); actualizarTextos(); }
+
+/* =========================================================
+   CONTROLES
+   ========================================================= */
+const LMIN = Math.log10(TASA_MIN), LMAX = Math.log10(TASA_MAX);
+const sliderATasa = v => Math.pow(10, LMIN + (LMAX-LMIN)*v/1000);
+const tasaASlider = t => Math.round((Math.log10(t)-LMIN)/(LMAX-LMIN)*1000);
+
+function salirGuia(){ if (E.guia){ E.guia = 0; } }
+
+$('tasa').value = tasaASlider(TASA_INI);
+$('tasa').addEventListener('input', e => {
+  E.tasa = sliderATasa(+e.target.value);
+  if (pasos()===0) E.tocoTasa = true;
+  salirGuia(); dibujarTodo();
+});
+$('bPaso').addEventListener('click', () => { salirGuia(); detenerAuto(); darPaso(); dibujarTodo(); });
+$('bAuto').addEventListener('click', () => { salirGuia(); E.corriendo ? detenerAuto() : iniciarAuto(); dibujarTodo(); });
+$('bReini').addEventListener('click', () => { salirGuia(); E.inicio = {...INICIO}; reiniciar(); });
+$('bComp').addEventListener('click', () => {
+  salirGuia(); E.complejo = !E.complejo; E.fmin = calcularMinimo(); dibujarMapa(); reiniciar();
+});
+$('bGuia').addEventListener('click', () => {
+  E.guia = E.guia>=4 ? 0 : E.guia+1;
+  if (E.guia===1){ reiniciar(); }
+  else if (E.guia===3){ detenerAuto(); darPaso(); }
+  else if (E.guia===4){ iniciarAuto(); }
+  dibujarTodo();
+});
+
+// Clic / toque en el mapa: nuevo punto de partida
+function soltarEn(x, y){
+  E.inicio = { x:Math.max(DOM.xmin+.05, Math.min(DOM.xmax-.05, x)), y:Math.max(DOM.ymin+.05, Math.min(DOM.ymax-.05, y)) };
+  salirGuia(); reiniciar();
+}
+$('capa').addEventListener('pointerdown', e => {
+  const svg = $('capa'), pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const q = aPar(p.x, p.y); soltarEn(q.x, q.y);
+});
+// Teclado en el mapa: flechas mueven el punto de partida
+$('capa').addEventListener('keydown', e => {
+  const d = {ArrowLeft:[-.2,0], ArrowRight:[.2,0], ArrowUp:[0,.2], ArrowDown:[0,-.2]}[e.key];
+  if (!d) return;
+  e.preventDefault(); soltarEn(E.inicio.x + d[0], E.inicio.y + d[1]);
+});
+document.addEventListener('keydown', e => { if (e.key==='Escape' && E.guia){ E.guia = 0; dibujarTodo(); } });
+
+/* =========================================================
+   ESCALADO DEL ESCENARIO (una sola pantalla, sin scroll)
+   ========================================================= */
+let tRender = null;
+function ajustar(){
+  const W = window.innerWidth, H = window.innerHeight;
+  const s = Math.min(W/1280, H/720);
+  const esc = $('escenario');
+  esc.style.transform = `translate(${(W-1280*s)/2}px, ${(H-720*s)/2}px) scale(${s})`;
+  const cambio = Math.abs(s - E.escala) > .05;
+  E.escala = s;
+  if (cambio){ clearTimeout(tRender); tRender = setTimeout(dibujarMapa, 120); }
+}
+window.addEventListener('resize', ajustar);
+
+// Cambio de tema: repintar con los colores nuevos
+const repintar = () => { dibujarMapa(); dibujarTodo(); };
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', repintar);
+new MutationObserver(repintar).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+
+/* Arranque */
+E.escala = Math.min(window.innerWidth/1280, window.innerHeight/720);
+ajustar();
+E.fmin = calcularMinimo();
+dibujarMapa();
+reiniciar();
+</script>
+
+</body></html>

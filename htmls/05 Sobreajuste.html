@@ -1,0 +1,558 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>05 Sobreajuste</title>
+<style>
+/* Escenario fijo 16:9 (1280×720) escalado con JS. Grid: cabecera / visual + panel / pie. */
+:root{
+  --fondo:#FAFAF7; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --superficie:#FFFFFF; --rejilla:#EEEEE8; --primario-suave:rgba(29,78,216,.08);
+  --alerta-suave:rgba(217,119,6,.14); --positivo-suave:rgba(21,128,61,.08);
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+    --superficie:#18212F; --rejilla:#243042; --primario-suave:rgba(96,165,250,.12);
+    --alerta-suave:rgba(251,191,36,.16); --positivo-suave:rgba(74,222,128,.10);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+  --superficie:#18212F; --rejilla:#243042; --primario-suave:rgba(96,165,250,.12);
+  --alerta-suave:rgba(251,191,36,.16); --positivo-suave:rgba(74,222,128,.10);
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);}
+body{color:var(--tinta);font-family:var(--sans);}
+*{box-sizing:border-box;}
+
+/* ---------- Escenario ---------- */
+#escenario{
+  position:absolute;left:50%;top:50%;width:1280px;height:720px;
+  transform-origin:center center;transform:translate(-50%,-50%);
+  display:grid;grid-template-columns:820px 400px;grid-template-rows:72px 500px 80px;
+  column-gap:20px;row-gap:12px;padding:16px 20px 0;
+}
+.cabecera{grid-column:1/3;display:flex;justify-content:space-between;align-items:center;gap:20px;}
+h1{margin:0;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-.01em;}
+h1 .num{font-family:var(--mono);color:var(--primario);font-weight:600;margin-right:6px;}
+.frase{margin:4px 0 0;font-size:16px;line-height:22px;color:var(--tinta-suave);white-space:nowrap;}
+
+/* ---------- Visual ---------- */
+.visual{background:var(--superficie);border:2px solid var(--linea);border-radius:8px;overflow:hidden;}
+#lienzo{display:block;width:816px;height:496px;}
+#lienzo text{font-family:var(--sans);}
+.t-eje{font-size:14px;fill:var(--tinta-suave);}
+.t-num{font-size:14px;fill:var(--tinta-suave);font-family:var(--mono)!important;}
+.t-tit{font-size:15px;fill:var(--tinta);font-weight:600;}
+.t-ley{font-size:14px;fill:var(--tinta);}
+.t-val{font-size:15px;fill:var(--tinta);font-family:var(--mono)!important;font-weight:600;}
+.t-tag{font-size:14px;fill:var(--alerta);font-weight:600;}
+.t-pista{font-size:14px;fill:var(--tinta-suave);font-style:italic;}
+.t-brecha{font-size:15px;fill:var(--tinta);font-weight:600;}
+.t-brecha.alta{fill:var(--error);}
+#zonaMini{cursor:pointer;}
+
+/* ---------- Panel derecho ---------- */
+.panel{display:grid;grid-template-rows:auto auto 1fr;gap:10px;min-height:0;}
+.caja{border:2px solid var(--linea);border-radius:8px;background:var(--superficie);padding:10px 16px;}
+.controles{display:flex;flex-direction:column;gap:0;padding:10px 16px;}
+.ctrl label{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;line-height:18px;}
+.ctrl output{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--primario);}
+input[type=range]{width:100%;height:40px;margin:0;accent-color:var(--primario);cursor:pointer;background:transparent;}
+.botones{display:flex;gap:8px;margin-top:4px;}
+button{font:inherit;font-size:15px;height:40px;padding:0 12px;border-radius:8px;cursor:pointer;
+  border:2px solid var(--linea);background:var(--superficie);color:var(--tinta);white-space:nowrap;}
+button:hover{border-color:var(--tinta-suave);}
+button.prim{background:var(--primario);border-color:var(--primario);color:var(--superficie);font-weight:600;flex:1.3;}
+.botones button{flex:1;}
+:focus-visible{outline:3px solid var(--primario);outline-offset:2px;}
+.etq{margin:0 0 4px;font-size:14px;line-height:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);}
+.observar{min-height:86px;}
+.observar p#obsTxt{margin:0;font-size:15px;line-height:20px;}
+.observar.paso{border-color:var(--primario);background:var(--primario-suave);}
+.observar.paso .etq{color:var(--primario);}
+.reto p{margin:0;font-size:15px;line-height:20px;}
+.reto .etq{color:var(--alerta);}
+.reto .estado{margin-top:4px;font-size:15px;color:var(--tinta-suave);display:flex;gap:8px;align-items:center;}
+.reto .marca{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:2px solid var(--linea);font-size:13px;font-weight:700;flex:none;}
+.reto.ok{border-color:var(--positivo);background:var(--positivo-suave);}
+.reto.ok .estado{color:var(--positivo);font-weight:600;}
+.reto.ok .marca{border-color:var(--positivo);background:var(--positivo);color:var(--superficie);}
+
+/* ---------- Pie ---------- */
+.pie{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr;gap:32px;border-top:2px solid var(--linea);padding-top:10px;}
+.pie p{margin:0;font-size:15px;line-height:21px;}
+.pie strong{color:var(--primario);}
+
+/* ---------- Capa de detalles ---------- */
+#capa{position:absolute;inset:0;background:rgba(17,24,39,.45);display:grid;place-items:center;z-index:5;}
+#capa[hidden]{display:none!important;}
+.capa-caja{width:600px;background:var(--superficie);border:2px solid var(--linea);border-radius:8px;padding:20px 24px;}
+.capa-caja h2{margin:0 0 10px;font-size:20px;}
+.capa-caja ul{margin:0 0 14px;padding-left:20px;display:grid;gap:8px;}
+.capa-caja li{font-size:15px;line-height:21px;}
+.capa-caja code{font-family:var(--mono);}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+</style>
+
+<div id="escenario">
+  <header class="cabecera">
+    <div>
+      <h1><span class="num">05</span>Sobreajuste</h1>
+      <p class="frase">Un modelo demasiado flexible memoriza los datos con los que se entrena y falla con datos nuevos.</p>
+    </div>
+    <button id="btnDetalles" aria-haspopup="dialog">Detalles</button>
+  </header>
+
+  <section class="visual" aria-label="Visual interactivo del sobreajuste">
+    <svg id="lienzo" viewBox="0 0 820 500" role="img" aria-labelledby="lienzoDesc">
+      <desc id="lienzoDesc">Puntos de entrenamiento y validación con la curva del modelo, barras de error y gráfica de error contra complejidad.</desc>
+      <defs>
+        <clipPath id="recorte"><rect x="64" y="40" width="736" height="242"></rect></clipPath>
+        <pattern id="rayado" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="7" height="7" style="fill:var(--alerta-suave)"></rect>
+          <line x1="0" y1="0" x2="0" y2="7" style="stroke:var(--alerta);stroke-width:3"></line>
+        </pattern>
+      </defs>
+      <g id="gEstatico"></g>
+      <path id="curva" clip-path="url(#recorte)" fill="none" style="stroke:var(--primario);stroke-width:3;stroke-linejoin:round;stroke-linecap:round"></path>
+      <g id="gPuntos" clip-path="url(#recorte)"></g>
+      <g id="gLeyenda"></g>
+      <g id="gBarras"></g>
+      <g id="gMini"></g>
+      <rect id="zonaMini" x="436" y="356" width="372" height="136" fill="transparent" aria-hidden="true"></rect>
+    </svg>
+  </section>
+
+  <aside class="panel">
+    <div class="caja controles">
+      <div class="ctrl">
+        <label for="rGrado">Complejidad del modelo <output id="oGrado" for="rGrado">grado 1</output></label>
+        <input type="range" id="rGrado" min="1" max="12" step="1" value="1" aria-label="Complejidad del modelo, grado del polinomio">
+      </div>
+      <div class="ctrl">
+        <label for="rN">Puntos de entrenamiento <output id="oN" for="rN">12</output></label>
+        <input type="range" id="rN" min="6" max="60" step="1" value="12" aria-label="Cantidad de puntos de entrenamiento">
+      </div>
+      <div class="ctrl">
+        <label for="rRuido">Ruido en los datos <output id="oRuido" for="rRuido">10 g</output></label>
+        <input type="range" id="rRuido" min="0" max="25" step="1" value="10" aria-label="Ruido en los datos, en gramos">
+      </div>
+      <div class="botones">
+        <button id="btnPaso" class="prim">Paso a paso ▶</button>
+        <button id="btnReiniciar">Reiniciar</button>
+        <button id="btnDatos">Otros datos</button>
+      </div>
+    </div>
+
+    <div class="caja observar" id="observar" aria-live="polite">
+      <p class="etq" id="obsEtq">Qué observar</p>
+      <p id="obsTxt"></p>
+    </div>
+
+    <div class="caja reto" id="reto">
+      <p class="etq">Reto</p>
+      <p>Encuentra la complejidad que minimiza el error de validación.</p>
+      <p class="estado" id="retoEstado" aria-live="polite"><span class="marca" id="retoMarca" aria-hidden="true"></span><span id="retoTxt"></span></p>
+    </div>
+  </aside>
+
+  <footer class="pie">
+    <p><strong>Analogía en sistemas.</strong> Hardcodear las respuestas de los casos de prueba: pasa todos los tests conocidos y falla en producción.</p>
+    <p><strong>En el campo.</strong> Con pocas fotos de cuadrantes etiquetados, un modelo memoriza fácilmente; por eso se mide con fotos que nunca vio.</p>
+  </footer>
+
+  <div id="capa" hidden>
+    <div class="capa-caja" role="dialog" aria-modal="true" aria-labelledby="capaTit">
+      <h2 id="capaTit">Qué hay detrás de esta ficha</h2>
+      <ul>
+        <li><strong>Ejemplo ilustrativo:</strong> datos sintéticos, una tendencia suave más ruido aleatorio con semilla fija (<code id="capaSemilla"></code>).</li>
+        <li><strong>Cálculo real:</strong> la curva es un ajuste polinómico por mínimos cuadrados que corre en tu navegador.</li>
+        <li><strong>Error:</strong> raíz del error cuadrático medio, en gramos, sobre cada conjunto de puntos.</li>
+        <li><strong>Versión simplificada:</strong> en una red neuronal la flexibilidad depende de sus parámetros; aquí la representa el grado.</li>
+        <li>Se suma una regularización mínima (λ = 10⁻¹²) solo para estabilidad numérica.</li>
+      </ul>
+      <button id="btnCerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   FICHA 05 · SOBREAJUSTE
+   Todo se calcula de verdad: ajuste polinómico por mínimos cuadrados
+   (QR de Householder sobre base de Chebyshev) para cada grado 1..12.
+   ===================================================================== */
+
+// ---------- Constantes ----------
+const ANCHO = 1280, ALTO = 720;
+const GRADO_MAX = 12;
+const N_INI = 12, RUIDO_INI = 10, GRADO_INI = 1;
+const N_POOL = 60;           // reserva de puntos de entrenamiento
+const N_VAL = 40;            // puntos de validación (huecos)
+const SEMILLA_BASE = 2026;
+const LAMBDA = 1e-12;        // regularización mínima, solo estabilidad
+const G = 100;               // escala: valor normalizado → gramos
+const CM0 = 5, CM1 = 35;     // eje x en cm (Ejemplo ilustrativo)
+const DOM_Y = [-0.12, 1.12]; // dominio vertical normalizado
+const P = { x0: 64, x1: 800, y0: 40, y1: 282 };   // gráfica principal
+const B = { x0: 16, x1: 384 };                     // barras
+const M = { x0: 456, x1: 796, y0: 368, y1: 460 }; // mini gráfica
+const DUR_ANIM = 450, PASO_BARRIDO = 280;
+const MUESTRAS = 161;
+const ESPERA_RETO = 700;     // ms que hay que quedarse en el mínimo
+let temporizadorReto = null;
+const reducido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Tendencia suave "verdadera": biomasa según altura (normalizada 0..1)
+function tendencia(x){ return 0.2 + 0.55*x + 0.15*Math.sin(2*Math.PI*1.2*x + 0.3); }
+
+// ---------- PRNG con semilla (mulberry32) y gaussiana ----------
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function gauss(r){ let u=0; while(u===0) u=r(); const v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+// ---------- Álgebra: base de Chebyshev + mínimos cuadrados ----------
+function filaCheb(x, p){ const t=2*x-1, f=new Float64Array(p); f[0]=1; if(p>1) f[1]=t; for(let k=2;k<p;k++) f[k]=2*t*f[k-1]-f[k-2]; return f; }
+function evaluar(c, x){ const f=filaCheb(x, c.length); let s=0; for(let k=0;k<c.length;k++) s+=c[k]*f[k]; return s; }
+
+// Resuelve min ||A c - b||² por QR de Householder (A de m×p, m ≥ p)
+function minimosCuadrados(A, b, p){
+  const m=A.length, R=A.map(r=>Float64Array.from(r)), y=Float64Array.from(b), v=new Float64Array(m);
+  for(let k=0;k<p;k++){
+    let nrm=0; for(let i=k;i<m;i++) nrm+=R[i][k]*R[i][k]; nrm=Math.sqrt(nrm);
+    if(nrm===0) continue;
+    const alfa = R[k][k]>0 ? -nrm : nrm;
+    let vn=0; for(let i=k;i<m;i++){ v[i]=R[i][k]; } v[k]-=alfa;
+    for(let i=k;i<m;i++) vn+=v[i]*v[i];
+    if(vn===0) continue;
+    for(let j=k;j<p;j++){ let s=0; for(let i=k;i<m;i++) s+=v[i]*R[i][j]; s=2*s/vn; for(let i=k;i<m;i++) R[i][j]-=s*v[i]; }
+    let s=0; for(let i=k;i<m;i++) s+=v[i]*y[i]; s=2*s/vn; for(let i=k;i<m;i++) y[i]-=s*v[i];
+  }
+  const c=new Float64Array(p);
+  for(let k=p-1;k>=0;k--){ let s=y[k]; for(let j=k+1;j<p;j++) s-=R[k][j]*c[j]; c[k]=Math.abs(R[k][k])>1e-14 ? s/R[k][k] : 0; }
+  return c;
+}
+
+// Ajuste de grado d (filas extra √λ·I: regularización mínima)
+function ajustar(pts, d){
+  const p=d+1, A=[], b=[];
+  for(const q of pts){ A.push(filaCheb(q.x,p)); b.push(q.y); }
+  const r=Math.sqrt(LAMBDA);
+  for(let k=0;k<p;k++){ const f=new Float64Array(p); f[k]=r; A.push(f); b.push(0); }
+  return minimosCuadrados(A,b,p);
+}
+function rmse(c, pts){ let s=0; for(const q of pts){ const e=evaluar(c,q.x)-q.y; s+=e*e; } return Math.sqrt(s/pts.length)*G; }
+
+// ---------- Datos ----------
+function generarDatos(semilla){
+  const r=mulberry32(semilla), pool=[], val=[];
+  for(let i=0;i<N_POOL;i++) pool.push({ x:0.02+0.96*r(), z:gauss(r) });
+  for(let i=0;i<N_VAL;i++)  val.push({ x:0.02+0.96*(i+r())/N_VAL, z:gauss(r) });
+  return { pool, val };
+}
+
+// ---------- Estado ----------
+const estado = {
+  grado:GRADO_INI, n:N_INI, ruido:RUIDO_INI, semilla:SEMILLA_BASE,
+  visitados:new Set([GRADO_INI]), gradoPorUsuario:false,
+  paso:0, barrido:null, logradoClave:null
+};
+let datos = generarDatos(estado.semilla);
+let calc = null;   // { tren, valid, res[d], mejor, ymax }
+
+function claveDatos(){ return estado.semilla+'-'+estado.n+'-'+estado.ruido; }
+
+function calcular(){
+  const sig=estado.ruido/G;
+  const tren=datos.pool.slice(0,estado.n).map(q=>({x:q.x, y:tendencia(q.x)+sig*q.z}));
+  const valid=datos.val.map(q=>({x:q.x, y:tendencia(q.x)+sig*q.z}));
+  const res=[];
+  let mejor=1;
+  for(let d=1; d<=GRADO_MAX; d++){
+    const c=ajustar(tren,d);
+    res[d]={ c, et:rmse(c,tren), ev:rmse(c,valid) };
+    if(res[d].ev < res[mejor].ev) mejor=d;
+  }
+  const base=Math.max(res[1].et, res[1].ev, 2);
+  const ymax=Math.ceil(base*1.5/5)*5;
+  calc={ tren, valid, res, mejor, ymax };
+}
+
+// ---------- Utilidades SVG ----------
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+function el(tag, at, padre){ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(padre) padre.appendChild(e); return e; }
+function tx(x,y,s,at,padre){ const t=el('text',Object.assign({x,y},at||{}),padre); t.textContent=s; return t; }
+function vaciar(g){ while(g.firstChild) g.removeChild(g.firstChild); }
+const sx=x=>P.x0+x*(P.x1-P.x0);
+const sy=y=>P.y1-(y-DOM_Y[0])/(DOM_Y[1]-DOM_Y[0])*(P.y1-P.y0);
+const f1=v=>v.toFixed(1);
+
+// ---------- Elementos estáticos (ejes, rótulos, separadores) ----------
+function dibujarEstatico(){
+  const g=$('gEstatico');
+  // Rejilla y eje Y (gramos)
+  for(let gr=0; gr<=100; gr+=25){
+    const y=sy(gr/G);
+    el('line',{x1:P.x0,x2:P.x1,y1:y,y2:y,style:'stroke:var(--rejilla);stroke-width:1.5'},g);
+    tx(P.x0-8,y+5,String(gr),{class:'t-num','text-anchor':'end'},g);
+  }
+  // Eje X (cm)
+  el('line',{x1:P.x0,x2:P.x1,y1:P.y1,y2:P.y1,style:'stroke:var(--linea);stroke-width:2'},g);
+  for(let cm=CM0; cm<=CM1; cm+=5){
+    const x=sx((cm-CM0)/(CM1-CM0));
+    el('line',{x1:x,x2:x,y1:P.y1,y2:P.y1+5,style:'stroke:var(--linea);stroke-width:2'},g);
+    tx(x,P.y1+21,String(cm),{class:'t-num','text-anchor':'middle'},g);
+  }
+  tx((P.x0+P.x1)/2-60,316,'Altura del pasto (cm)',{class:'t-eje','text-anchor':'middle'},g);
+  tx(20,(P.y0+P.y1)/2,'Biomasa (g)',{class:'t-eje','text-anchor':'middle',transform:`rotate(-90 20 ${(P.y0+P.y1)/2})`},g);
+  tx(P.x1,316,'Versión simplificada · ver Detalles',{class:'t-eje','text-anchor':'end'},g);
+  // Etiqueta obligatoria
+  const tagW=160;
+  el('rect',{x:P.x1-tagW,y:8,width:tagW,height:24,rx:8,style:'fill:var(--alerta-suave);stroke:var(--alerta);stroke-width:1.5'},g);
+  tx(P.x1-tagW/2,25,'Ejemplo ilustrativo',{class:'t-tag','text-anchor':'middle'},g);
+  // Separadores de la fila inferior
+  el('line',{x1:8,x2:812,y1:328,y2:328,style:'stroke:var(--linea);stroke-width:2'},g);
+  el('line',{x1:404,x2:404,y1:338,y2:492,style:'stroke:var(--linea);stroke-width:2'},g);
+  tx(B.x0,352,'Error promedio (g)',{class:'t-tit'},g);
+  tx(418,352,'Error vs grado',{class:'t-tit'},g);
+  // Mini gráfica: eje X con grados
+  el('line',{x1:M.x0,x2:M.x1,y1:M.y1,y2:M.y1,style:'stroke:var(--linea);stroke-width:2'},g);
+  for(let d=1; d<=GRADO_MAX; d++) tx(mx(d),M.y1+20,String(d),{class:'t-num','text-anchor':'middle'},g);
+}
+const mx=d=>M.x0+12+(d-1)*(M.x1-M.x0-24)/(GRADO_MAX-1);
+const my=v=>M.y1-Math.min(v,calc.ymax)/calc.ymax*(M.y1-M.y0);
+
+// ---------- Curva del modelo (animada) ----------
+let curvaActual=null, animId=0;
+function muestras(c){ const a=new Float64Array(MUESTRAS); for(let i=0;i<MUESTRAS;i++){ const v=evaluar(c,i/(MUESTRAS-1)); a[i]=Math.max(-3,Math.min(4,v)); } return a; }
+function pintarCurva(a){ let d=''; for(let i=0;i<a.length;i++){ d+=(i?'L':'M')+sx(i/(a.length-1)).toFixed(1)+' '+sy(a[i]).toFixed(1); } $('curva').setAttribute('d',d); }
+function dibujarCurva(){
+  const obj=muestras(calc.res[estado.grado].c);
+  const id=++animId;
+  if(!curvaActual||reducido){ curvaActual=obj; pintarCurva(obj); return; }
+  const ini=curvaActual, t0=performance.now();
+  function cuadro(ahora){
+    if(id!==animId) return;
+    let k=Math.min(1,(ahora-t0)/DUR_ANIM); k=1-Math.pow(1-k,3);
+    const cur=new Float64Array(MUESTRAS); for(let i=0;i<MUESTRAS;i++) cur[i]=ini[i]+(obj[i]-ini[i])*k;
+    curvaActual=cur; pintarCurva(cur);
+    if(k<1) requestAnimationFrame(cuadro);
+  }
+  requestAnimationFrame(cuadro);
+}
+
+// ---------- Puntos y leyenda ----------
+function dibujarPuntos(){
+  const g=$('gPuntos'); vaciar(g);
+  for(const q of calc.valid) el('circle',{cx:sx(q.x),cy:sy(q.y),r:5,style:'fill:var(--superficie);stroke:var(--alerta);stroke-width:2'},g);
+  for(const q of calc.tren)  el('circle',{cx:sx(q.x),cy:sy(q.y),r:5,style:'fill:var(--tinta);stroke:var(--superficie);stroke-width:1.5'},g);
+  const L=$('gLeyenda'); vaciar(L);
+  let x=P.x0+4;
+  el('circle',{cx:x+5,cy:20,r:5,style:'fill:var(--tinta)'},L);
+  x+=16; let t=tx(x,25,`Entrenamiento (${estado.n})`,{class:'t-ley'},L); x+=t.getComputedTextLength()+22;
+  el('circle',{cx:x+5,cy:20,r:5,style:'fill:var(--superficie);stroke:var(--alerta);stroke-width:2'},L);
+  x+=16; t=tx(x,25,`Validación (${N_VAL})`,{class:'t-ley'},L); x+=t.getComputedTextLength()+22;
+  el('line',{x1:x,x2:x+24,y1:20,y2:20,style:'stroke:var(--primario);stroke-width:3;stroke-linecap:round'},L);
+  tx(x+32,25,`Modelo · grado ${estado.grado}`,{class:'t-ley'},L);
+}
+
+// ---------- Barras de error ----------
+function dibujarBarras(){
+  const g=$('gBarras'); vaciar(g);
+  const r=calc.res[estado.grado], W=B.x1-B.x0, ym=calc.ymax;
+  const filas=[
+    { nom:'● Entrenamiento', v:r.et, y:374, estilo:'fill:var(--tinta)' },
+    { nom:'○ Validación',    v:r.ev, y:422, estilo:'fill:url(#rayado);stroke:var(--alerta);stroke-width:2' }
+  ];
+  const fin=[];
+  for(const f of filas){
+    tx(B.x0,f.y,f.nom,{class:'t-ley'},g);
+    tx(B.x1,f.y,(f.v>ym?'> ':'')+f1(Math.min(f.v,999))+' g',{class:'t-val','text-anchor':'end'},g);
+    el('rect',{x:B.x0,y:f.y+6,width:W,height:18,rx:4,style:'fill:var(--rejilla)'},g);
+    const w=Math.max(2,Math.min(f.v,ym)/ym*W);
+    el('rect',{x:B.x0,y:f.y+6,width:w,height:18,rx:4,style:f.estilo},g);
+    if(f.v>ym) el('path',{d:`M${B.x1-2} ${f.y+15} l-10 -8 v16 z`,style:'fill:var(--error)'},g);
+    fin.push(B.x0+w);
+  }
+  // Brecha: corchete entre el final de ambas barras
+  const brecha=r.ev-r.et;
+  if(brecha>0.3){
+    const a=Math.min(fin[0],fin[1]), b=Math.max(fin[0],fin[1]), y=458;
+    el('path',{d:`M${a} ${y-6} V${y} H${b} V${y-6}`,fill:'none',style:'stroke:var(--error);stroke-width:2'},g);
+  }
+  const alta=brecha>Math.max(3,0.4*r.ev);
+  tx(B.x0,484,`Brecha validación − entrenamiento: ${f1(Math.max(0,Math.min(brecha,999)))} g`,{class:'t-brecha'+(alta?' alta':'')},g);
+}
+
+// ---------- Mini gráfica: error vs complejidad ----------
+function estrella(cx,cy,R){ let d=''; for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, r=i%2?R*0.45:R; d+=(i?'L':'M')+(cx+r*Math.cos(a)).toFixed(1)+' '+(cy+r*Math.sin(a)).toFixed(1); } return d+'Z'; }
+function dibujarMini(){
+  const g=$('gMini'); vaciar(g);
+  const ym=calc.ymax;
+  // Rejilla y valores del eje Y
+  for(const v of [0, ym/2, ym]){
+    const y=my(v);
+    if(v>0) el('line',{x1:M.x0,x2:M.x1,y1:y,y2:y,style:'stroke:var(--rejilla);stroke-width:1.5'},g);
+    tx(M.x0-8,y+5,String(Math.round(v)),{class:'t-num','text-anchor':'end'},g);
+  }
+  // Marca del grado actual
+  const xa=mx(estado.grado);
+  el('rect',{x:xa-12,y:M.y0-4,width:24,height:M.y1-M.y0+4,rx:6,style:'fill:var(--primario-suave)'},g);
+  const vis=[...estado.visitados].sort((a,b)=>a-b);
+  if(vis.length<3) tx((M.x0+M.x1)/2,M.y0+26,'Mueve la complejidad: aquí se dibujan los errores',{class:'t-pista','text-anchor':'middle'},g);
+  // Líneas
+  const linea=(k)=>vis.map((d,i)=>(i?'L':'M')+mx(d).toFixed(1)+' '+my(calc.res[d][k]).toFixed(1)).join('');
+  if(vis.length>1){
+    el('path',{d:linea('et'),fill:'none',style:'stroke:var(--tinta);stroke-width:2'},g);
+    el('path',{d:linea('ev'),fill:'none',style:'stroke:var(--alerta);stroke-width:2.5;stroke-dasharray:6 4'},g);
+  }
+  // Puntos
+  for(const d of vis){
+    const r=calc.res[d];
+    el('circle',{cx:mx(d),cy:my(r.et),r:4,style:'fill:var(--tinta)'},g);
+    el('circle',{cx:mx(d),cy:my(r.ev),r:5,style:'fill:var(--superficie);stroke:var(--alerta);stroke-width:2'},g);
+    if(r.ev>ym) el('path',{d:`M${mx(d)} ${M.y0-12} l-5 8 h10 z`,style:'fill:var(--error)'},g);
+  }
+  // Estrella en el mínimo real, solo si el reto está logrado con estos datos
+  if(estado.logradoClave===claveDatos()){
+    const d=calc.mejor, cx=mx(d), cy=my(calc.res[d].ev);
+    el('path',{d:estrella(cx,cy,11),style:'fill:var(--positivo);stroke:var(--superficie);stroke-width:1.5'},g);
+    tx(cx,cy-16,'mínimo',{class:'t-eje','text-anchor':'middle',style:'fill:var(--positivo);font-weight:600'},g);
+  }
+  // Leyenda compacta
+  tx(M.x1,352,'— entren.  - - valid.',{class:'t-eje','text-anchor':'end'},g);
+}
+
+// ---------- Textos: qué observar, reto ----------
+const PASOS=[
+  null,
+  'Modelo muy simple: una recta no alcanza la curva y falla en todo.',
+  'Complejidad media: sigue la tendencia y deja pasar el ruido.',
+  'Complejidad alta: la curva persigue cada punto, incluido el ruido.',
+  'La brecha se abre: entrenamiento baja casi a cero, validación sube.'
+];
+function textoObservar(){
+  const d=estado.grado, r=calc.res[d], b=calc.mejor, vmin=calc.res[b].ev;
+  if(d===b) return 'Aquí la validación es mínima: el modelo sigue la tendencia sin copiar el ruido.';
+  if(d<b) return r.ev>1.1*vmin
+    ? 'Modelo rígido: falla parecido en entrenamiento y en validación. Prueba más complejidad.'
+    : 'Casi en el punto justo: un poco más de complejidad aún mejora la validación.';
+  const memoriza = r.et<0.6*r.ev && r.ev>1.25*vmin;
+  if(memoriza) return estado.n<=10
+    ? 'Con tan pocos puntos, la curva los atraviesa todos y falla con datos nuevos.'
+    : 'Memoriza: el error de entrenamiento casi desaparece, pero el de validación crece.';
+  if(estado.ruido===0) return 'Sin ruido hay poco que memorizar: la brecha crece mucho menos.';
+  return 'Pasado el punto justo: la validación ya no mejora y la brecha empieza a abrirse.';
+}
+function actualizarTextos(){
+  const obs=$('observar');
+  if(estado.paso>0){
+    obs.classList.add('paso');
+    $('obsEtq').textContent=`Paso ${estado.paso} de 4`;
+    $('obsTxt').textContent=PASOS[estado.paso];
+  } else {
+    obs.classList.remove('paso');
+    $('obsEtq').textContent='Qué observar';
+    $('obsTxt').textContent=textoObservar();
+  }
+  $('btnPaso').textContent = estado.paso===0 ? 'Paso a paso ▶' : (estado.paso<4 ? `Paso ${estado.paso+1} de 4 ▶` : 'Repetir ▶');
+  // Reto
+  const clave=claveDatos();
+  clearTimeout(temporizadorReto);
+  if(estado.gradoPorUsuario && estado.grado===calc.mejor && estado.logradoClave!==clave){
+    temporizadorReto=setTimeout(()=>{ if(estado.gradoPorUsuario && estado.grado===calc.mejor){ estado.logradoClave=claveDatos(); dibujarMini(); actualizarTextos(); } }, ESPERA_RETO);
+  }
+  const reto=$('reto'), m=$('retoMarca'), t=$('retoTxt');
+  if(estado.logradoClave===clave){
+    reto.classList.add('ok'); m.textContent='✓';
+    t.textContent=`¡Logrado! El mínimo está en grado ${calc.mejor}.`;
+  } else {
+    reto.classList.remove('ok'); m.textContent='';
+    t.textContent = estado.logradoClave ? 'Los datos cambiaron: busca el nuevo mínimo.' : 'Pendiente: mira la línea punteada.';
+  }
+  const r=calc.res[estado.grado];
+  $('lienzoDesc').textContent=`Grado ${estado.grado}. Error de entrenamiento ${f1(r.et)} gramos; de validación ${f1(r.ev)} gramos.`;
+}
+
+// ---------- Render ----------
+function render(datosCambiaron){
+  if(datosCambiaron) calcular();
+  $('rGrado').value=estado.grado; $('rN').value=estado.n; $('rRuido').value=estado.ruido;
+  $('oGrado').textContent='grado '+estado.grado; $('oN').textContent=estado.n; $('oRuido').textContent=estado.ruido+' g';
+  dibujarCurva(); dibujarPuntos(); dibujarBarras(); dibujarMini(); actualizarTextos();
+}
+
+// ---------- Acciones ----------
+function cancelarBarrido(){ if(estado.barrido){ clearTimeout(estado.barrido); estado.barrido=null; } }
+function salirPasos(){ cancelarBarrido(); estado.paso=0; }
+function fijarGrado(d, porUsuario){ estado.grado=d; estado.visitados.add(d); estado.gradoPorUsuario=porUsuario; }
+
+$('rGrado').addEventListener('input',e=>{ salirPasos(); fijarGrado(+e.target.value,true); render(false); });
+$('rN').addEventListener('input',e=>{ salirPasos(); estado.n=+e.target.value; render(true); });
+$('rRuido').addEventListener('input',e=>{ salirPasos(); estado.ruido=+e.target.value; render(true); });
+
+$('btnDatos').addEventListener('click',()=>{ salirPasos(); estado.semilla++; datos=generarDatos(estado.semilla); $('capaSemilla').textContent=estado.semilla; render(true); });
+
+$('btnReiniciar').addEventListener('click',()=>{
+  salirPasos();
+  Object.assign(estado,{grado:GRADO_INI,n:N_INI,ruido:RUIDO_INI,semilla:SEMILLA_BASE,visitados:new Set([GRADO_INI]),gradoPorUsuario:false,logradoClave:null});
+  datos=generarDatos(estado.semilla); $('capaSemilla').textContent=estado.semilla; render(true);
+});
+
+$('btnPaso').addEventListener('click',()=>{
+  cancelarBarrido();
+  estado.paso = estado.paso>=4 ? 1 : estado.paso+1;
+  if(estado.paso===1) fijarGrado(1,false);
+  if(estado.paso===2) fijarGrado(calc.mejor,false);
+  if(estado.paso===3) fijarGrado(GRADO_MAX,false);
+  if(estado.paso===4){
+    estado.visitados=new Set();
+    if(reducido){ for(let d=1;d<=GRADO_MAX;d++) estado.visitados.add(d); fijarGrado(GRADO_MAX,false); }
+    else {
+      let d=1;
+      const avanzar=()=>{ fijarGrado(d,false); render(false); d++; estado.barrido = d<=GRADO_MAX ? setTimeout(avanzar,PASO_BARRIDO) : null; };
+      avanzar(); return;
+    }
+  }
+  render(false);
+});
+
+// Clic o toque en la mini gráfica: elige el grado
+$('zonaMini').addEventListener('pointerdown',e=>{
+  const svg=$('lienzo'), pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+  const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+  const d=Math.max(1,Math.min(GRADO_MAX,Math.round((p.x-M.x0-12)/((M.x1-M.x0-24)/(GRADO_MAX-1))+1)));
+  salirPasos(); fijarGrado(d,true); render(false);
+});
+
+// Capa de detalles (Esc para cerrar)
+let focoPrevio=null;
+function abrirCapa(){ focoPrevio=document.activeElement; $('capa').hidden=false; $('btnCerrar').focus(); }
+function cerrarCapa(){ $('capa').hidden=true; if(focoPrevio) focoPrevio.focus(); }
+$('btnDetalles').addEventListener('click',abrirCapa);
+$('btnCerrar').addEventListener('click',cerrarCapa);
+$('capa').addEventListener('click',e=>{ if(e.target.id==='capa') cerrarCapa(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('capa').hidden) cerrarCapa(); });
+
+// ---------- Escalado del escenario 1280×720 ----------
+function escalar(){
+  const s=Math.min(window.innerWidth/ANCHO, window.innerHeight/ALTO);
+  $('escenario').style.transform=`translate(-50%,-50%) scale(${s})`;
+}
+window.addEventListener('resize',escalar);
+
+// ---------- Inicio ----------
+escalar();
+$('capaSemilla').textContent=estado.semilla;
+calcular();
+dibujarEstatico();
+render(false);
+</script>
+
+</body></html>

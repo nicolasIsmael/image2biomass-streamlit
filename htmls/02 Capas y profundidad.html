@@ -1,0 +1,705 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>02 Capas y profundidad</title>
+<meta name="description" content="Ficha 02: por qué apilar capas permite a una red trazar fronteras curvas. Red neuronal real entrenando en el navegador.">
+<style>
+/* Concepto: escenario fijo 1280×720 escalado; plano de decisión a la izquierda, controles a la derecha. */
+:root{
+  --fondo:#FAFAF7; --panel:#FFFFFF; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --primario-tenue:#DBE4FB; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --verde:#2E7D32; --trebol:#8E4EC6; --muerta:#8D6E3F;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --panel:#1A2333; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --primario-tenue:#1E3A6B; --positivo:#22C55E; --alerta:#F59E0B; --error:#F87171;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --panel:#1A2333; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --primario-tenue:#1E3A6B; --positivo:#22C55E; --alerta:#F59E0B; --error:#F87171;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);color:var(--tinta);font-family:var(--sans);}
+*{box-sizing:border-box;}
+
+/* ---------- Escenario 16:9 ---------- */
+#escenario{
+  position:absolute;left:50%;top:50%;width:1280px;height:720px;
+  transform:translate(-50%,-50%) scale(1);transform-origin:center center;
+  display:grid;grid-template-rows:72px 500px 80px;row-gap:18px;padding:16px 28px;
+}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+
+/* Franja superior */
+#cabecera{display:flex;justify-content:space-between;align-items:flex-start;}
+#cabecera h1{margin:0;font-size:26px;font-weight:700;line-height:34px;letter-spacing:-0.01em;}
+#cabecera h1 .num{color:var(--primario);font-family:var(--mono);margin-right:10px;}
+#cabecera p{margin:4px 0 0;font-size:16px;color:var(--tinta-suave);line-height:22px;}
+.etiqueta-btn{
+  font:600 14px var(--sans);color:var(--tinta);background:transparent;border:2px solid var(--linea);
+  border-radius:8px;height:40px;padding:0 14px;cursor:pointer;
+}
+.etiqueta-btn:hover{border-color:var(--tinta-suave);}
+
+/* Zona central */
+#centro{display:grid;grid-template-columns:810px 390px;column-gap:24px;}
+#visual{
+  border:2px solid var(--linea);border-radius:8px;background:var(--panel);
+  display:grid;grid-template-columns:468px 1fr;padding:12px 14px;column-gap:14px;
+}
+.cab-mini{height:28px;display:flex;align-items:center;justify-content:space-between;font-size:14px;color:var(--tinta-suave);}
+.tag{font-size:14px;border:1.5px solid var(--linea);border-radius:6px;padding:1px 8px;color:var(--tinta-suave);}
+.leyenda{display:flex;gap:14px;align-items:center;font-size:14px;color:var(--tinta);}
+.leyenda svg{vertical-align:-2px;margin-right:5px;}
+#planoEnvoltura{position:relative;width:440px;height:440px;margin-top:4px;}
+#plano{width:440px;height:440px;border-radius:8px;display:block;touch-action:none;cursor:crosshair;border:2px solid var(--linea);}
+#tooltip{
+  position:absolute;pointer-events:none;background:var(--tinta);color:var(--fondo);
+  font:600 14px var(--mono);padding:4px 8px;border-radius:6px;white-space:nowrap;transform:translate(12px,-34px);
+}
+#vistaEtiqueta{
+  position:absolute;left:10px;top:10px;background:var(--panel);border:2px solid var(--primario);
+  color:var(--tinta);font-size:14px;padding:3px 8px;border-radius:6px;
+}
+.eje{position:absolute;font-size:14px;color:var(--tinta-suave);background:var(--panel);padding:0 4px;border-radius:4px;}
+#ejeX{right:8px;bottom:6px;}
+#ejeY{left:8px;bottom:6px;}
+
+/* Lado derecho del visual: diagrama de la red */
+#ladoRed{display:grid;grid-template-rows:28px 60px 340px 40px;min-width:0;}
+#stats{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;}
+.stat{display:flex;flex-direction:column;}
+.stat small{font-size:14px;color:var(--tinta-suave);}
+.stat b{font:700 20px var(--mono);font-variant-numeric:tabular-nums;}
+#precision{font-size:26px;}
+#precision.ok{color:var(--positivo);}
+#diagrama{width:296px;height:340px;display:block;}
+#diagrama .nodo{cursor:pointer;}
+#diagrama .nodo:focus{outline:none;}
+#diagrama .nodo:focus-visible .anillo-foco,#diagrama .nodo:hover .anillo-foco{stroke:var(--alerta);}
+#pieRed{font-size:14px;color:var(--tinta-suave);}
+
+/* Columna derecha */
+#lateral{display:grid;grid-template-rows:auto 1fr auto;row-gap:14px;}
+.control{display:grid;gap:2px;}
+.control-fila{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:600;}
+.control-fila .mono{font-size:16px;color:var(--primario);}
+.segmentado{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--linea);border-radius:8px;overflow:hidden;}
+.segmentado button{
+  height:40px;border:0;background:transparent;color:var(--tinta);font:600 15px var(--sans);cursor:pointer;
+  border-left:2px solid var(--linea);
+}
+.segmentado button:first-child{border-left:0;}
+.segmentado button[aria-pressed="true"]{background:var(--tinta);color:var(--fondo);}
+input[type=range]{width:100%;height:28px;accent-color:var(--primario);margin:0;cursor:pointer;}
+input[type=range]:disabled{opacity:.4;cursor:not-allowed;}
+#controles{display:grid;gap:10px;}
+.botonera{display:grid;grid-template-columns:1.25fr 1fr 1.2fr;gap:8px;}
+.btn{
+  height:42px;border-radius:8px;border:2px solid var(--linea);background:var(--panel);color:var(--tinta);
+  font:600 15px var(--sans);cursor:pointer;padding:0 8px;
+}
+.btn:hover{border-color:var(--tinta-suave);}
+.btn.principal{background:var(--primario);border-color:var(--primario);color:#fff;}
+:root[data-theme="dark"] .btn.principal{color:#0B1220;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.principal{color:#0B1220;}}
+.semilla{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--tinta-suave);}
+.semilla button{font:600 14px var(--sans);background:none;border:0;color:var(--primario);cursor:pointer;min-height:40px;padding:0 4px;text-decoration:underline;text-underline-offset:3px;}
+button:focus-visible,input:focus-visible,.etiqueta-btn:focus-visible{outline:3px solid var(--alerta);outline-offset:2px;}
+
+.caja{border:2px solid var(--linea);border-radius:8px;padding:10px 14px;background:var(--panel);}
+.caja h2{margin:0 0 4px;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-suave);font-weight:700;display:flex;justify-content:space-between;}
+#observar{font-size:16px;line-height:22px;min-height:44px;margin:0;}
+#observarCaja{display:flex;flex-direction:column;justify-content:flex-start;}
+#reto{border-style:dashed;}
+#reto.logrado{border-style:solid;border-color:var(--positivo);}
+#reto p{margin:0;font-size:15px;line-height:20px;}
+.reto-estado{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:15px;}
+#marca{flex:none;}
+#retoTexto{line-height:19px;}
+
+/* Franja inferior */
+#pie{display:grid;grid-template-columns:810px 390px;column-gap:24px;border-top:2px solid var(--linea);padding-top:10px;}
+#pie div{font-size:15px;line-height:20px;}
+#pie b{display:block;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:2px;}
+
+/* Capa superpuesta */
+#capa{position:absolute;inset:0;background:rgba(17,24,39,.45);display:grid;place-items:center;}
+#capa[hidden]{display:none!important;}
+#capaCaja{width:640px;background:var(--panel);border:2px solid var(--linea);border-radius:8px;padding:22px 26px;}
+#capaCaja h2{margin:0 0 10px;font-size:22px;}
+#capaCaja ul{margin:0 0 16px;padding-left:20px;font-size:16px;line-height:25px;}
+#capaCaja .btn{width:120px;}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+</style>
+
+<div id="escenario" role="main">
+  <!-- Franja superior -->
+  <header id="cabecera">
+    <div>
+      <h1><span class="num">02</span>Capas y profundidad</h1>
+      <p>Una neurona sola solo traza una línea recta; al apilar capas, la red puede trazar fronteras complejas.</p>
+    </div>
+    <button class="etiqueta-btn" id="abrirCapa" aria-haspopup="dialog">Versión simplificada · ¿qué es real?</button>
+  </header>
+
+  <!-- Zona central -->
+  <section id="centro">
+    <div id="visual">
+      <!-- Plano 2D con mapa de decisión -->
+      <div>
+        <div class="cab-mini">
+          <span class="leyenda">
+            <span><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="var(--primario)"/></svg>Pasto sano</span>
+            <span><svg width="14" height="14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" fill="var(--alerta)"/></svg>Pasto seco</span>
+            <span><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--error)" stroke-width="2.5"/></svg>Error</span>
+          </span>
+          <span class="tag">Ejemplo ilustrativo</span>
+        </div>
+        <div id="planoEnvoltura">
+          <canvas id="plano" width="880" height="880" aria-label="Plano con puntos de dos clases y la frontera de decisión de la red"></canvas>
+          <span class="eje" id="ejeX">Rasgo A →</span>
+          <span class="eje" id="ejeY">↑ Rasgo B</span>
+          <div id="vistaEtiqueta" hidden></div>
+          <div id="tooltip" hidden></div>
+        </div>
+      </div>
+      <!-- Diagrama de la red -->
+      <div id="ladoRed">
+        <div class="cab-mini"><span>La red · toca una neurona oculta</span></div>
+        <div id="stats">
+          <div class="stat"><small>Época</small><b class="mono" id="epoca">0</b></div>
+          <div class="stat"><small>Pérdida</small><b class="mono" id="perdida">—</b></div>
+          <div class="stat"><small>Precisión</small><b class="mono" id="precision">—</b></div>
+        </div>
+        <svg id="diagrama" viewBox="0 0 300 340" role="group" aria-label="Diagrama de la red: entradas, capas ocultas y salida"></svg>
+        <div id="pieRed" class="semilla"><span>Semilla de pesos: <span class="mono" id="vSemilla">1</span></span><button id="btnSemilla">Otra semilla</button></div>
+      </div>
+    </div>
+
+    <!-- Columna derecha -->
+    <aside id="lateral">
+      <div id="controles">
+        <div class="control">
+          <div class="control-fila"><span id="lblDatos">Conjunto de datos</span></div>
+          <div class="segmentado" role="group" aria-labelledby="lblDatos">
+            <button data-ds="linea" aria-pressed="false">Línea</button>
+            <button data-ds="cruce" aria-pressed="true">Cruce</button>
+            <button data-ds="anillo" aria-pressed="false">Anillo</button>
+          </div>
+        </div>
+        <div class="control">
+          <label class="control-fila" for="capas"><span>Capas ocultas</span><span class="mono" id="vCapas">0</span></label>
+          <input type="range" id="capas" min="0" max="2" step="1" value="0" aria-label="Capas ocultas">
+        </div>
+        <div class="control">
+          <label class="control-fila" for="neuronas"><span>Neuronas por capa</span><span class="mono" id="vNeuronas">—</span></label>
+          <input type="range" id="neuronas" min="1" max="6" step="1" value="3" aria-label="Neuronas por capa" disabled>
+        </div>
+        <div class="botonera">
+          <button class="btn principal" id="btnEntrenar">Entrenar ▶</button>
+          <button class="btn" id="btnReiniciar">Reiniciar</button>
+          <button class="btn" id="btnPasos">Paso a paso ▶</button>
+        </div>
+              </div>
+
+      <div class="caja" id="observarCaja" aria-live="polite">
+        <h2><span>Qué observar</span><span id="pasoNum"></span></h2>
+        <p id="observar"></p>
+      </div>
+
+      <div class="caja" id="reto">
+        <h2><span>Reto</span></h2>
+        <p>Logra 95 % de precisión en <b>Anillo</b> con el menor número de neuronas posible.</p>
+        <div class="reto-estado">
+          <svg id="marca" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+            <circle id="marcaCirculo" cx="14" cy="14" r="12" fill="none" stroke="var(--linea)" stroke-width="2"/>
+            <path id="marcaCheck" d="M8 14.5l4 4 8-9" fill="none" stroke="var(--fondo)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+          </svg>
+          <span id="retoTexto">Aún sin lograr.</span>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- Franja inferior -->
+  <footer id="pie">
+    <div><b>Analogía en sistemas</b>Es un pipeline: cada capa reescribe los datos para que la siguiente tenga un trabajo más fácil.</div>
+    <div><b>En el campo</b>Separar cuadrantes de pasto verde disperso de los que tienen trébol mezclado: no basta una recta.</div>
+  </footer>
+
+  <!-- Capa superpuesta: qué es real -->
+  <div id="capa" hidden role="dialog" aria-modal="true" aria-labelledby="capaTitulo">
+    <div id="capaCaja">
+      <h2 id="capaTitulo">Versión simplificada: qué es real aquí</h2>
+      <ul>
+        <li>La red se entrena de verdad en tu navegador, con retropropagación.</li>
+        <li>Activación tanh en capas ocultas; sigmoide en la salida.</li>
+        <li>Pérdida: entropía cruzada. Descenso de gradiente punto a punto, tasa fija 0.008.</li>
+        <li>Datos sintéticos de 200 puntos con semilla fija: ejemplo ilustrativo.</li>
+        <li>La precisión se mide sobre los mismos puntos de entrenamiento, sin conjunto de prueba.</li>
+      </ul>
+      <button class="btn" id="cerrarCapa">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONSTANTES
+   ========================================================= */
+const CONF = {
+  TASA: 0.008,            // tasa de aprendizaje fija
+  FRAMES_POR_EPOCA: 2,    // una época cada 2 cuadros (ritmo visible)
+  MAX_EPOCAS: 1200,       // el entrenamiento se pausa solo al llegar aquí
+  RES: 110,               // resolución de la rejilla del mapa de decisión
+  DOM: 1.15,              // el plano cubre [-DOM, DOM] en ambos ejes
+  META: 0.95,             // precisión requerida para el reto
+  N_PUNTOS: 200,
+  LIENZO: 880             // resolución interna del canvas (2× de 440 px)
+};
+const SEMILLAS_DATOS = { linea: 11, cruce: 22, anillo: 33 };
+const MOV_REDUCIDO = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Pasos guiados: cada uno reemplaza el texto anterior (máx. 15 palabras). */
+const PASOS = [
+  { txt: 'Una neurona sola traza una recta: aquí basta para separar.', ds: 'linea', capas: 0, entrenar: true },
+  { txt: 'Datos en cruz: ninguna recta los separa. La precisión se estanca.', ds: 'cruce', capas: 0, entrenar: true },
+  { txt: 'Añadimos una capa oculta con 3 neuronas: tres rectas disponibles.', ds: 'cruce', capas: 1, neuronas: 3, entrenar: false },
+  { txt: 'Al entrenar, la salida combina esas rectas: la frontera se dobla.', entrenar: true, continuar: true }
+];
+
+/* =========================================================
+   PRNG CON SEMILLA (mulberry32) Y NORMAL
+   ========================================================= */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(r){ let u = 0; while (u === 0) u = r(); const v = r();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+/* =========================================================
+   DATOS SINTÉTICOS (ejemplo ilustrativo). c=1 sano, c=0 seco
+   ========================================================= */
+function generarDatos(tipo){
+  const r = mulberry32(SEMILLAS_DATOS[tipo]); const P = [];
+  for (let i = 0; i < CONF.N_PUNTOS; i++){
+    let x, y, c;
+    if (tipo === 'linea'){            // dos nubes separables por una recta
+      c = i % 2; const t = r() * 2 - 1; const off = (c ? 1 : -1) * (0.3 + r() * 0.45);
+      x = t * 0.8 - off * 0.45; y = t * 0.5 + off * 0.75;
+    } else if (tipo === 'cruce'){     // cuatro nubes en cruz (XOR)
+      const q = i % 4, sx = (q & 1) ? 1 : -1, sy = (q & 2) ? 1 : -1;
+      x = sx * 0.5 + gauss(r) * 0.17; y = sy * 0.5 + gauss(r) * 0.17; c = sx * sy > 0 ? 1 : 0;
+    } else {                          // disco interior rodeado por un anillo
+      c = i % 2; const a = r() * Math.PI * 2; const rad = c ? r() * 0.35 : 0.68 + r() * 0.27;
+      x = rad * Math.cos(a); y = rad * Math.sin(a);
+    }
+    x = Math.max(-1.05, Math.min(1.05, x)); y = Math.max(-1.05, Math.min(1.05, y));
+    P.push({ x, y, c });
+  }
+  return P;
+}
+
+/* =========================================================
+   MINI RED NEURONAL REAL (tanh ocultas, sigmoide salida)
+   ========================================================= */
+function crearRed(capas, neuronas, semilla){
+  const tam = [2]; for (let i = 0; i < capas; i++) tam.push(neuronas); tam.push(1);
+  const r = mulberry32(semilla * 7919 + 1); const W = [], B = [];
+  for (let l = 1; l < tam.length; l++){
+    const nin = tam[l-1], nout = tam[l]; const w = new Float64Array(nout * nin);
+    for (let k = 0; k < w.length; k++) w[k] = gauss(r) * Math.sqrt(1 / nin);   // inicialización tipo Xavier
+    W.push(w); B.push(new Float64Array(nout));
+  }
+  return { tam, W, B, A: tam.map(s => new Float64Array(s)), D: tam.map(s => new Float64Array(s)),
+           rng: mulberry32(semilla * 31 + 7) };
+}
+function propagar(red, x, y){
+  const { tam, W, B, A } = red; const Ln = tam.length - 1; A[0][0] = x; A[0][1] = y;
+  for (let l = 1; l <= Ln; l++){
+    const nin = tam[l-1], w = W[l-1], b = B[l-1], ap = A[l-1], a = A[l];
+    for (let j = 0; j < tam[l]; j++){
+      let z = b[j]; for (let i = 0; i < nin; i++) z += w[j*nin + i] * ap[i];
+      a[j] = l === Ln ? 1 / (1 + Math.exp(-z)) : Math.tanh(z);
+    }
+  }
+  return A[Ln][0];
+}
+/* Una época: recorre los puntos en orden aleatorio y ajusta pesos con retropropagación */
+function entrenarEpoca(red, P, tasa){
+  const idx = P.map((_, i) => i), r = red.rng;
+  for (let i = idx.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  const { tam, W, B, A, D } = red; const Ln = tam.length - 1;
+  for (const k of idx){
+    const p = P[k]; D[Ln][0] = propagar(red, p.x, p.y) - p.c;   // gradiente de entropía cruzada + sigmoide
+    for (let l = Ln; l >= 1; l--){
+      const nin = tam[l-1], w = W[l-1], b = B[l-1], ap = A[l-1], d = D[l], dp = D[l-1];
+      if (l > 1) for (let i = 0; i < nin; i++){
+        let s = 0; for (let j = 0; j < tam[l]; j++) s += w[j*nin + i] * d[j];
+        dp[i] = s * (1 - ap[i] * ap[i]);                         // derivada de tanh
+      }
+      for (let j = 0; j < tam[l]; j++){
+        b[j] -= tasa * d[j]; for (let i = 0; i < nin; i++) w[j*nin + i] -= tasa * d[j] * ap[i];
+      }
+    }
+  }
+}
+function evaluar(red, P){
+  let ok = 0, perd = 0;
+  for (const p of P){ const o = propagar(red, p.x, p.y); if ((o >= 0.5 ? 1 : 0) === p.c) ok++;
+    perd -= p.c * Math.log(o + 1e-7) + (1 - p.c) * Math.log(1 - o + 1e-7); }
+  return { acc: ok / P.length, perd: perd / P.length };
+}
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+const est = {
+  ds: 'cruce', capas: 0, neuronas: 3, semilla: 1,
+  datos: null, red: null, epoca: 0, ev: { acc: 0, perd: 0 },
+  entrenando: false, frame: 0, ultimoRender: 0,
+  vista: null,     // {l, j} neurona oculta inspeccionada
+  paso: 0,         // 0 = modo libre; 1..4 = paso a paso
+  reto: { logrado: false, mejor: Infinity }
+};
+const $ = id => document.getElementById(id);
+const lienzo = $('plano'), ctx = lienzo.getContext('2d');
+const capaMapa = document.createElement('canvas'); capaMapa.width = capaMapa.height = CONF.RES + 1;
+const ctxMapa = capaMapa.getContext('2d');
+let COL = {};
+
+/* Colores leídos de las variables CSS (cambian con el tema) */
+function leerColores(){
+  const cs = getComputedStyle(document.documentElement);
+  const hex = n => { const v = cs.getPropertyValue(n).trim();
+    const h = v.replace('#',''); return { s: v, r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) }; };
+  COL = { fondo: hex('--panel'), tinta: hex('--tinta'), suave: hex('--tinta-suave'), prim: hex('--primario'),
+          alerta: hex('--alerta'), error: hex('--error'), linea: hex('--linea') };
+}
+
+/* =========================================================
+   ESCALADO DEL ESCENARIO (una sola pantalla)
+   ========================================================= */
+let escala = 1;
+function escalar(){
+  escala = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+  $('escenario').style.transform = `translate(-50%,-50%) scale(${escala})`;
+}
+window.addEventListener('resize', escalar);
+
+/* =========================================================
+   DIBUJO DEL PLANO
+   ========================================================= */
+const aPx = v => (v + CONF.DOM) / (2 * CONF.DOM) * CONF.LIENZO;          // dominio → píxel
+const aDom = px => px / CONF.LIENZO * 2 * CONF.DOM - CONF.DOM;            // píxel → dominio
+
+/* Valor mostrado en el mapa: salida de la red o activación de una neurona oculta */
+function valorEn(x, y){
+  const o = propagar(est.red, x, y);
+  return est.vista ? est.red.A[est.vista.l][est.vista.j] : o;
+}
+
+function dibujarPlano(){
+  const R = CONF.RES, n = R + 1, G = new Float64Array(n * n);
+  for (let gy = 0; gy < n; gy++) for (let gx = 0; gx < n; gx++){
+    const x = -CONF.DOM + 2 * CONF.DOM * gx / R, y = CONF.DOM - 2 * CONF.DOM * gy / R;
+    G[gy*n + gx] = valorEn(x, y);
+  }
+  // Mapa de color: intensidad = confianza
+  const img = ctxMapa.createImageData(n, n), f = COL.fondo;
+  for (let k = 0; k < n*n; k++){
+    const v = G[k]; let c, a;
+    if (est.vista){ a = Math.abs(v) * (v > 0 ? 0.45 : 0.3); c = v > 0 ? COL.prim : COL.suave; }
+    else { a = Math.abs(v - 0.5) * 2 * 0.42; c = v >= 0.5 ? COL.prim : COL.alerta; }
+    img.data[k*4]   = f.r + (c.r - f.r) * a;
+    img.data[k*4+1] = f.g + (c.g - f.g) * a;
+    img.data[k*4+2] = f.b + (c.b - f.b) * a;
+    img.data[k*4+3] = 255;
+  }
+  ctxMapa.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(capaMapa, 0, 0, CONF.LIENZO, CONF.LIENZO);
+
+  // Ejes finos
+  ctx.strokeStyle = COL.linea.s; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(aPx(0), 0); ctx.lineTo(aPx(0), CONF.LIENZO);
+  ctx.moveTo(0, aPx(0)); ctx.lineTo(CONF.LIENZO, aPx(0)); ctx.stroke();
+
+  // Frontera (marching squares sobre la rejilla)
+  dibujarContorno(G, n, est.vista ? 0 : 0.5);
+
+  // Puntos de datos
+  if (!est.vista){
+    for (const p of est.datos){
+      const px = aPx(p.x), py = aPx(-p.y), o = propagar(est.red, p.x, p.y);
+      const malo = (o >= 0.5 ? 1 : 0) !== p.c;
+      ctx.lineWidth = 3; ctx.strokeStyle = COL.fondo.s;
+      if (p.c){ ctx.fillStyle = COL.prim.s; ctx.beginPath(); ctx.arc(px, py, 9, 0, 7); ctx.fill(); ctx.stroke(); }
+      else { ctx.fillStyle = COL.alerta.s; ctx.fillRect(px-8, py-8, 16, 16); ctx.strokeRect(px-8, py-8, 16, 16); }
+      if (malo && est.epoca > 0){ ctx.strokeStyle = COL.error.s; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(px, py, 15, 0, 7); ctx.stroke(); }
+    }
+  } else {
+    // en la vista de neurona, los puntos quedan tenues para no competir
+    ctx.globalAlpha = 0.35;
+    for (const p of est.datos){ const px = aPx(p.x), py = aPx(-p.y);
+      ctx.fillStyle = p.c ? COL.prim.s : COL.alerta.s;
+      if (p.c){ ctx.beginPath(); ctx.arc(px, py, 7, 0, 7); ctx.fill(); } else ctx.fillRect(px-6, py-6, 12, 12); }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function dibujarContorno(G, n, t){
+  const paso = CONF.LIENZO / (n - 1);
+  ctx.strokeStyle = COL.tinta.s; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath();
+  const lerp = (a, b) => (t - a) / (b - a);
+  for (let y = 0; y < n - 1; y++) for (let x = 0; x < n - 1; x++){
+    const a = G[y*n+x], b = G[y*n+x+1], c = G[(y+1)*n+x+1], d = G[(y+1)*n+x];
+    const pts = [];
+    if ((a < t) !== (b < t)) pts.push([x + lerp(a, b), y]);
+    if ((b < t) !== (c < t)) pts.push([x + 1, y + lerp(b, c)]);
+    if ((d < t) !== (c < t)) pts.push([x + lerp(d, c), y + 1]);
+    if ((a < t) !== (d < t)) pts.push([x, y + lerp(a, d)]);
+    for (let k = 0; k + 1 < pts.length; k += 2){
+      ctx.moveTo(pts[k][0]*paso, pts[k][1]*paso); ctx.lineTo(pts[k+1][0]*paso, pts[k+1][1]*paso);
+    }
+  }
+  ctx.stroke();
+}
+
+/* =========================================================
+   DIAGRAMA DE LA RED (SVG)
+   ========================================================= */
+const NS = 'http://www.w3.org/2000/svg';
+let aristas = [];   // {el, l, j, i}
+function el(tag, attrs, padre){ const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]); if (padre) padre.appendChild(e); return e; }
+
+function posNodos(){
+  const tam = est.red.tam, W = 300, H = 306, top = 2;
+  const xs = tam.map((_, l) => 28 + l * (W - 56) / (tam.length - 1));
+  return tam.map((s, l) => Array.from({ length: s }, (_, j) => ({
+    x: xs[l], y: top + (H / (s + 1)) * (j + 1) })));
+}
+
+function construirDiagrama(){
+  const svg = $('diagrama'); svg.innerHTML = ''; aristas = [];
+  const pos = posNodos(), tam = est.red.tam;
+  const gA = el('g', {}, svg), gN = el('g', {}, svg);
+  for (let l = 1; l < tam.length; l++)
+    for (let j = 0; j < tam[l]; j++) for (let i = 0; i < tam[l-1]; i++){
+      const a = el('line', { x1: pos[l-1][i].x, y1: pos[l-1][i].y, x2: pos[l][j].x, y2: pos[l][j].y,
+                             'stroke-linecap': 'round' }, gA);
+      aristas.push({ el: a, l, j, i });
+    }
+  tam.forEach((s, l) => {
+    pos[l].forEach((p, j) => {
+      const oculta = l > 0 && l < tam.length - 1;
+      const g = el('g', { class: oculta ? 'nodo' : '' }, gN);
+      el('circle', { class: 'anillo-foco', cx: p.x, cy: p.y, r: 17, fill: 'none', stroke: 'transparent', 'stroke-width': 3 }, g);
+      el('circle', { cx: p.x, cy: p.y, r: 13, fill: 'var(--panel)',
+                     stroke: oculta || l === tam.length - 1 ? 'var(--primario)' : 'var(--tinta)', 'stroke-width': 2 }, g);
+      const tx = l === 0 ? (j ? 'B' : 'A') : (l === tam.length - 1 ? 'S' : '');
+      if (tx){ const t = el('text', { x: p.x, y: p.y + 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700,
+                                      fill: 'var(--tinta)', 'font-family': 'var(--mono)' }, g); t.textContent = tx; }
+      if (oculta){
+        g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
+        g.setAttribute('aria-label', `Capa ${l}, neurona ${j+1}: ver lo que detecta`);
+        const ver = () => { est.vista = { l, j }; renderizar(); };
+        const quitar = () => { if (est.vista && est.vista.l === l && est.vista.j === j){ est.vista = null; renderizar(); } };
+        g.addEventListener('pointerenter', ver); g.addEventListener('pointerleave', quitar);
+        g.addEventListener('focus', ver); g.addEventListener('blur', quitar);
+        g.addEventListener('pointerdown', ev => { ev.preventDefault();
+          if (est.vista && est.vista.l === l && est.vista.j === j) est.vista = null; else est.vista = { l, j }; renderizar(); });
+      }
+    });
+    // etiqueta de la columna
+    const rot = l === 0 ? 'Entradas' : l === tam.length - 1 ? 'Salida' : `Capa ${l}`;
+    const t = el('text', { x: pos[l][0].x, y: 332, 'text-anchor': 'middle', 'font-size': 14, fill: 'var(--tinta-suave)' }, svg);
+    t.textContent = rot;
+  });
+}
+
+function actualizarAristas(){
+  for (const a of aristas){
+    const w = est.red.W[a.l-1][a.j * est.red.tam[a.l-1] + a.i];
+    const ancho = 0.8 + Math.min(Math.abs(w), 3) * 1.4;
+    const resaltar = est.vista && ((a.l === est.vista.l && a.j === est.vista.j) || (a.l === est.vista.l + 1 && a.i === est.vista.j));
+    a.el.setAttribute('stroke', w >= 0 ? 'var(--primario)' : 'var(--alerta)');
+    a.el.setAttribute('stroke-dasharray', w >= 0 ? '' : '5 4');   // negativo: discontinuo (no solo color)
+    a.el.setAttribute('stroke-width', ancho.toFixed(2));
+    a.el.setAttribute('opacity', est.vista ? (resaltar ? 0.95 : 0.15) : 0.75);
+  }
+}
+
+/* =========================================================
+   TEXTOS DINÁMICOS
+   ========================================================= */
+function totalOcultas(){ return est.capas * est.neuronas; }
+function textoObservar(){
+  if (est.paso) return PASOS[est.paso - 1].txt;
+  const { acc } = est.ev;
+  if (est.vista) return est.vista.l === 1
+    ? 'Esta neurona de la capa 1 solo ve una recta: su borde siempre es recto.'
+    : 'Esta neurona de la capa 2 combina rectas de la capa 1: su borde ya se curva.';
+  if (est.capas > 0 && est.neuronas === 1) return 'Una neurona por capa sigue siendo una sola recta, aunque apiles capas.';
+  if (est.epoca === 0) return est.capas === 0
+    ? 'Sin capas ocultas. Pulsa Entrenar: ¿basta una recta para separar estos datos?'
+    : 'Pulsa Entrenar y mira cómo la frontera se dobla.';
+  if (acc >= CONF.META) return est.capas === 0
+    ? 'Una recta basta: estos datos se separan linealmente.'
+    : `Resuelto: la salida combinó ${totalOcultas()} rectas ocultas en una frontera curva.`;
+  if (est.capas === 0 && est.epoca > 120) return 'Estancado: una neurona sola solo traza rectas, y aquí ninguna recta sirve.';
+  if (est.capas === 0) return 'Una sola neurona ajusta una recta. Mira dónde se detiene.';
+  if (est.ds === 'anillo' && totalOcultas() === 2 && est.epoca > 250) return 'Dos rectas forman una franja, no un contorno cerrado. Prueba con 3.';
+  if (est.epoca >= CONF.MAX_EPOCAS) return 'Se atascó en un mal punto: prueba Otra semilla o más neuronas.';
+  return 'Cada neurona oculta aporta una recta; la salida las combina en una curva.';
+}
+
+function actualizarReto(){
+  const { acc } = est.ev;
+  if (est.ds === 'anillo' && est.capas > 0 && est.epoca > 0 && acc >= CONF.META){
+    est.reto.logrado = true; est.reto.mejor = Math.min(est.reto.mejor, totalOcultas());
+  }
+  const r = $('reto');
+  r.classList.toggle('logrado', est.reto.logrado);
+  $('marcaCirculo').setAttribute('fill', est.reto.logrado ? 'var(--positivo)' : 'none');
+  $('marcaCirculo').setAttribute('stroke', est.reto.logrado ? 'var(--positivo)' : 'var(--linea)');
+  $('marcaCheck').setAttribute('opacity', est.reto.logrado ? 1 : 0);
+  let t;
+  if (est.reto.logrado){
+    t = `Logrado con ${est.reto.mejor} neurona${est.reto.mejor > 1 ? 's' : ''} oculta${est.reto.mejor > 1 ? 's' : ''}.`;
+    if (est.reto.mejor <= 3) t += ' Con menos rectas no se encierra el centro.';
+  } else if (est.ds === 'anillo') t = `Precisión actual en Anillo: ${(acc * 100).toFixed(1)} %.`;
+  else t = 'Elige el conjunto Anillo para intentarlo.';
+  $('retoTexto').textContent = t;
+}
+
+/* =========================================================
+   RENDER GENERAL
+   ========================================================= */
+function renderizar(){
+  dibujarPlano(); actualizarAristas();
+  $('epoca').textContent = est.epoca;
+  $('perdida').textContent = est.epoca ? est.ev.perd.toFixed(3) : '—';
+  const pr = $('precision');
+  pr.textContent = (est.ev.acc * 100).toFixed(1) + ' %';
+  pr.classList.toggle('ok', est.ev.acc >= CONF.META);
+  $('observar').textContent = textoObservar();
+  $('pasoNum').textContent = est.paso ? `Paso ${est.paso}/4` : '';
+  const vEt = $('vistaEtiqueta');
+  if (est.vista){ vEt.hidden = false; vEt.textContent = `Viendo: capa ${est.vista.l}, neurona ${est.vista.j + 1}`; }
+  else vEt.hidden = true;
+  actualizarReto();
+  const b = $('btnEntrenar'); b.textContent = est.entrenando ? 'Pausar ❚❚' : 'Entrenar ▶';
+  b.setAttribute('aria-label', est.entrenando ? 'Pausar entrenamiento' : 'Entrenar la red');
+}
+
+/* =========================================================
+   CONTROL DEL ENTRENAMIENTO
+   ========================================================= */
+function reiniciarRed(){
+  est.red = crearRed(est.capas, est.neuronas, est.semilla);
+  est.epoca = 0; est.ev = evaluar(est.red, est.datos); est.vista = null;
+  construirDiagrama(); renderizar();
+}
+function bucle(t){
+  if (!est.entrenando) return;
+  est.frame++;
+  if (est.frame % CONF.FRAMES_POR_EPOCA === 0){
+    entrenarEpoca(est.red, est.datos, CONF.TASA); est.epoca++;
+    est.ev = evaluar(est.red, est.datos);
+  }
+  if (est.epoca >= CONF.MAX_EPOCAS) est.entrenando = false;
+  // Con movimiento reducido: solo cambios de estado cada 0.5 s
+  if (!MOV_REDUCIDO || t - est.ultimoRender > 500 || !est.entrenando){ renderizar(); est.ultimoRender = t; }
+  requestAnimationFrame(bucle);
+}
+function entrenar(){ if (est.epoca >= CONF.MAX_EPOCAS) return;
+  est.entrenando = true; requestAnimationFrame(bucle); renderizar(); }
+function pausar(){ est.entrenando = false; renderizar(); }
+
+/* Sincroniza los controles visibles con el estado */
+function sincronizarControles(){
+  document.querySelectorAll('.segmentado button').forEach(b => b.setAttribute('aria-pressed', b.dataset.ds === est.ds));
+  $('capas').value = est.capas; $('vCapas').textContent = est.capas;
+  $('neuronas').value = est.neuronas; $('neuronas').disabled = est.capas === 0;
+  $('vNeuronas').textContent = est.capas === 0 ? '—' : est.neuronas;
+  $('vSemilla').textContent = est.semilla;
+  $('btnPasos').textContent = est.paso && est.paso < 4 ? 'Siguiente ▶' : (est.paso === 4 ? 'Terminar' : 'Paso a paso ▶');
+}
+function aplicarConfig(c){
+  pausar();
+  if (c.ds && c.ds !== est.ds){ est.ds = c.ds; est.datos = generarDatos(est.ds); }
+  if (c.capas !== undefined) est.capas = c.capas;
+  if (c.neuronas !== undefined) est.neuronas = c.neuronas;
+  sincronizarControles(); reiniciarRed();
+}
+function salirDePasos(){ if (est.paso){ est.paso = 0; sincronizarControles(); } }
+
+/* =========================================================
+   EVENTOS
+   ========================================================= */
+document.querySelectorAll('.segmentado button').forEach(b => b.addEventListener('click', () => {
+  salirDePasos(); aplicarConfig({ ds: b.dataset.ds });
+}));
+$('capas').addEventListener('input', e => { salirDePasos(); aplicarConfig({ capas: +e.target.value }); });
+$('neuronas').addEventListener('input', e => { salirDePasos(); aplicarConfig({ neuronas: +e.target.value }); });
+$('btnEntrenar').addEventListener('click', () => est.entrenando ? pausar() : entrenar());
+$('btnReiniciar').addEventListener('click', () => { salirDePasos(); pausar(); reiniciarRed(); });
+$('btnSemilla').addEventListener('click', () => { salirDePasos(); pausar(); est.semilla++; sincronizarControles(); reiniciarRed(); });
+$('btnPasos').addEventListener('click', () => {
+  est.paso = est.paso >= 4 ? 0 : est.paso + 1;
+  if (!est.paso){ sincronizarControles(); renderizar(); return; }
+  const p = PASOS[est.paso - 1];
+  if (p.continuar){ sincronizarControles(); entrenar(); return; }
+  aplicarConfig(p); if (p.entrenar) entrenar();
+});
+
+/* Tooltip sobre el plano: probabilidad en el punto (mouse y táctil) */
+function mostrarTip(ev){
+  const r = lienzo.getBoundingClientRect();
+  const fx = (ev.clientX - r.left) / r.width, fy = (ev.clientY - r.top) / r.height;
+  if (fx < 0 || fx > 1 || fy < 0 || fy > 1){ $('tooltip').hidden = true; return; }
+  const x = aDom(fx * CONF.LIENZO), y = -aDom(fy * CONF.LIENZO);
+  const o = propagar(est.red, x, y);
+  const tip = $('tooltip'); tip.hidden = false;
+  tip.textContent = est.vista ? `activación ${est.red.A[est.vista.l][est.vista.j].toFixed(2)}` : `P(sano) = ${o.toFixed(2)}`;
+  tip.style.left = (fx * 440) + 'px'; tip.style.top = (fy * 440) + 'px';
+}
+lienzo.addEventListener('pointermove', mostrarTip);
+lienzo.addEventListener('pointerdown', mostrarTip);
+lienzo.addEventListener('pointerleave', () => $('tooltip').hidden = true);
+
+/* Capa superpuesta */
+function abrirCapa(){ $('capa').hidden = false; $('cerrarCapa').focus(); }
+function cerrarCapa(){ $('capa').hidden = true; $('abrirCapa').focus(); }
+$('abrirCapa').addEventListener('click', abrirCapa);
+$('cerrarCapa').addEventListener('click', cerrarCapa);
+$('capa').addEventListener('click', e => { if (e.target.id === 'capa') cerrarCapa(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('capa').hidden) cerrarCapa(); });
+
+/* Cambios de tema: releer colores y redibujar */
+function alCambiarTema(){ leerColores(); if (est.red) renderizar(); }
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', alCambiarTema);
+new MutationObserver(alCambiarTema).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+/* =========================================================
+   INICIO
+   ========================================================= */
+escalar(); leerColores();
+est.datos = generarDatos(est.ds);
+sincronizarControles(); reiniciarRed();
+</script>
+
+</body></html>

@@ -1,0 +1,499 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>06 Validación honesta</title>
+<style>
+/* Diagrama técnico limpio: escenario fijo 1280×720 escalado; visual a la izquierda, controles a la derecha */
+:root{
+  --fondo:#FAFAF7; --tinta:#1F2937; --tinta-suave:#6B7280; --linea:#D1D5DB;
+  --primario:#1D4ED8; --positivo:#15803D; --alerta:#D97706; --error:#C62828;
+  --superficie:#FFFFFF; --primario-suave:#DBEAFE;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+    --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+    --superficie:#1F2937; --primario-suave:#1E3A5F; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#111827; --tinta:#F3F4F6; --tinta-suave:#9CA3AF; --linea:#374151;
+  --primario:#60A5FA; --positivo:#4ADE80; --alerta:#FBBF24; --error:#F87171;
+  --superficie:#1F2937; --primario-suave:#1E3A5F; color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+*{box-sizing:border-box}
+
+/* ---------- Escenario 1280×720 ---------- */
+#escenario{position:fixed;top:0;left:0;width:1280px;height:720px;transform-origin:0 0;
+  display:grid;grid-template-rows:72px 500px 80px;row-gap:14px;padding:20px 28px;overflow:hidden}
+.cabecera h1{margin:0;font-size:26px;font-weight:650;letter-spacing:-.01em;line-height:34px}
+.cabecera h1 .num{font-family:var(--mono);color:var(--primario);margin-right:10px}
+.cabecera p{margin:4px 0 0;font-size:16px;color:var(--tinta-suave);white-space:nowrap}
+
+.centro{display:grid;grid-template-columns:820px 380px;column-gap:24px}
+#visual{width:820px;height:500px;display:block;overflow:visible}
+
+/* ---------- Columna derecha ---------- */
+.lateral{display:flex;flex-direction:column;gap:10px;height:500px}
+.caja{border:2px solid var(--linea);border-radius:8px;background:var(--superficie);padding:10px 14px}
+.etq{font-size:14px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);margin:0 0 4px}
+.control{margin-bottom:8px}
+.fila{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+.valor{font-family:var(--mono);font-size:15px;color:var(--primario);font-variant-numeric:tabular-nums}
+.segmento{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--linea);border-radius:8px;overflow:hidden;margin-top:6px}
+.segmento button{height:40px;border:0;background:transparent;color:var(--tinta);font:inherit;font-size:15px;cursor:pointer}
+.segmento button[aria-checked="true"]{background:var(--primario);color:var(--fondo);font-weight:650}
+.segmento button:focus-visible,.btn:focus-visible,input[type=range]:focus-visible{outline:3px solid var(--alerta);outline-offset:2px}
+input[type=range]{width:100%;height:40px;display:block;margin:0;accent-color:var(--primario);cursor:pointer}
+.pista{display:flex;justify-content:space-between;font-size:14px;color:var(--tinta-suave);margin-top:-6px}
+.nota-dias{font-size:15px;line-height:1.35}
+.botones{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.btn{height:42px;border-radius:8px;border:2px solid var(--primario);background:transparent;color:var(--primario);font:inherit;font-size:15px;font-weight:650;cursor:pointer}
+.btn.lleno{background:var(--primario);color:var(--fondo)}
+.observar p{margin:0;font-size:16px;line-height:1.35;min-height:43px}
+.reto{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center}
+.reto p{margin:0;font-size:15px;line-height:1.38}
+.marca{width:40px;height:40px;border-radius:50%;border:2px dashed var(--linea);display:grid;place-items:center;
+  font-size:22px;color:transparent;transition:all .4s}
+.reto.ok .marca{border:2px solid var(--positivo);background:var(--positivo);color:var(--fondo)}
+.reto .estado{font-size:14px;color:var(--tinta-suave);font-weight:650}
+.reto.ok .estado{color:var(--positivo)}
+
+/* ---------- Franja inferior ---------- */
+.pie{display:grid;grid-template-columns:1fr 1fr;column-gap:24px;border-top:2px solid var(--linea);padding-top:10px}
+.pie p{margin:0;font-size:15px;line-height:1.4}
+.pie b{display:block;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:2px}
+
+/* ---------- SVG ---------- */
+svg text{fill:var(--tinta);font-family:var(--sans)}
+.t14{font-size:14px}.t15{font-size:15px}.suave{fill:var(--tinta-suave)}
+.mono{font-family:var(--mono)!important;font-variant-numeric:tabular-nums}
+.dia{cursor:pointer;outline:none}
+.dia:focus-visible .panel{stroke:var(--alerta);stroke-width:3}
+.punto{cursor:help}
+@media (prefers-reduced-motion: reduce){ .marca{transition:none} }
+</style>
+
+<div id="escenario">
+  <header class="cabecera">
+    <h1><span class="num">06</span>Validación honesta (fuga de datos)</h1>
+    <p>Para medir si un modelo aprendió, el examen no puede traer datos casi iguales a los de estudio.</p>
+  </header>
+
+  <main class="centro">
+    <svg id="visual" viewBox="0 0 820 500" role="img" aria-label="Línea de tiempo de 12 días con fotos de entrenamiento y validación, y medidores de nota"></svg>
+
+    <aside class="lateral">
+      <div class="caja">
+        <div class="control">
+          <div class="fila"><span>Reparto</span><span class="valor" id="vReparto">al azar</span></div>
+          <div class="segmento" role="radiogroup" aria-label="Forma de repartir entrenamiento y validación">
+            <button id="bAzar" role="radio" aria-checked="true">Al azar</button>
+            <button id="bDias" role="radio" aria-checked="false">Por días completos</button>
+          </div>
+        </div>
+        <div class="control">
+          <div class="fila"><label for="sParecido">Parecido entre fotos del mismo día</label><span class="valor" id="vParecido">90 %</span></div>
+          <input id="sParecido" type="range" min="0" max="100" step="1" value="90" aria-label="Qué tanto se parecen las fotos de un mismo día, en porcentaje">
+                  </div>
+        <div class="control nota-dias">
+          <div class="fila"><span>En validación</span><span class="valor" id="vVal">24 de 96 fotos</span></div>
+          <span style="color:var(--tinta-suave)">Clic en un día: pasa completo a Validación.</span>
+        </div>
+        <div class="botones">
+          <button class="btn lleno" id="bPaso">Paso a paso ▶</button>
+          <button class="btn" id="bReiniciar">Reiniciar</button>
+        </div>
+      </div>
+
+      <div class="caja observar">
+        <div class="etq">Qué observar</div>
+        <p id="observar" aria-live="polite"></p>
+      </div>
+
+      <div class="caja">
+        <div class="etq">Reto</div>
+        <div class="reto" id="reto">
+          <div class="marca" aria-hidden="true">✓</div>
+          <div>
+            <p>Con parecido ≥ 60 %, reparte los días para que las dos notas difieran menos de 5 puntos.</p>
+            <span class="estado" id="retoEstado" aria-live="polite">Pendiente</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="pie">
+    <p><b>Analogía en sistemas</b>Dividir los clics de un recomendador por clic y no por usuario: la prueba ya conoce a ese usuario.</p>
+    <p><b>En el campo</b>Fotos del mismo día comparten luz y sombra. Por eso se valida con fechas que el modelo nunca vio.</p>
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   CONSTANTES
+   ========================================================= */
+const SEMILLA = 65;           // semilla fija: la presentación es reproducible
+const DIAS = 12;              // días en la línea de tiempo
+const DIAS_NUEVOS = 16;       // días nunca vistos para la "nota real"
+const FOTOS = 8;              // fotos por día
+const PROB_NIVEL_DIA = 0.9;   // prob. de que una foto tenga el nivel de biomasa típico de su día
+const RUIDO_VERDOR = 0.3;     // ruido de la señal genuina (verdor) que sí dice algo del pasto
+const PESO_VERDOR = 0.3;      // peso del verdor en la distancia del vecino más cercano
+const N_AZAR = 24;            // fotos a validación en el reparto al azar
+const VAL_INICIAL = [5,9,10]; // por días: tres días completos de inicio
+const PARECIDO_INICIAL = 90;
+const NIVELES = ["baja","media","alta"];
+const NS = "http://www.w3.org/2000/svg";
+
+// Geometría del visual (px del escenario)
+const COL_X0 = 4, COL_W = 46, COL_GAP = 2;
+const PANEL_Y = 62, PANEL_H = 146;
+const NUEVO_Y = 282, NUEVO_W = 34, NUEVO_GAP = 2;
+const MED_X = 612, BAR_Y = 70, BAR_H = 260, BAR_W = 64;
+
+const PASOS = [
+  {txt:"Paso 1 de 4 · Las fotos de un mismo día se parecen: misma luz, misma humedad.", modo:"azar", parecido:90, resaltar:1},
+  {txt:"Paso 2 de 4 · Un reparto al azar deja fotos de cada día en ambos lados.", modo:"azar", parecido:90},
+  {txt:"Paso 3 de 4 · El modelo reconoce el día, no el pasto.", modo:"azar", parecido:90, lineas:true},
+  {txt:"Paso 4 de 4 · Por días completos, la nota aparente baja y se parece a la real.", modo:"dias", parecido:90}
+];
+
+/* =========================================================
+   PRNG y datos sintéticos (Ejemplo ilustrativo)
+   ========================================================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+function generarDatos(semilla){
+  const r = mulberry32(semilla);
+  const gauss = () => { const u=r()||1e-9, v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+  const dias = [];
+  for (let d=0; d<DIAS+DIAS_NUEVOS; d++){
+    // Tinte del día: luz (L) y humedad (H). Nivel típico de biomasa del día (c).
+    const L=.1+.8*r(), H=.1+.8*r(), c=Math.floor(r()*3);
+    const fotos=[];
+    for (let k=0;k<FOTOS;k++){
+      const nivel = r()<PROB_NIVEL_DIA ? c : (c+1+Math.floor(r()*2))%3;
+      fotos.push({ nivel, verdor: nivel/2 + gauss()*RUIDO_VERDOR,
+        rL:.1+.8*r(), rH:.1+.8*r(), jL:gauss()*.015, jH:gauss()*.015 });
+    }
+    dias.push({L,H,c,fotos});
+  }
+  // Reparto al azar fijo: 24 de las 96 fotos
+  const orden=[...Array(DIAS*FOTOS).keys()];
+  for (let i=orden.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [orden[i],orden[j]]=[orden[j],orden[i]]; }
+  return { dias, azar:new Set(orden.slice(0,N_AZAR)) };
+}
+const DATOS = generarDatos(SEMILLA);
+
+// Rasgos de una foto: el tinte mezcla el del día con uno propio según el parecido s.
+function rasgos(dia, f, s){
+  return [ s*dia.L+(1-s)*f.rL+f.jL, s*dia.H+(1-s)*f.rH+f.jH, f.verdor ];
+}
+function colorTinte(L,H){
+  const l=Math.max(0,Math.min(1,L)), h=Math.max(0,Math.min(1,H));
+  return `hsl(${Math.round(30+h*170)} 55% ${Math.round(30+l*36)}%)`;
+}
+
+/* =========================================================
+   MODELO MEMORIZADOR: vecino más cercano (cálculo real)
+   ========================================================= */
+function calcular(estado){
+  const s = estado.parecido/100;
+  const entreno=[], valid=[];
+  DATOS.dias.slice(0,DIAS).forEach((dia,di)=>dia.fotos.forEach((f,k)=>{
+    const esVal = estado.modo==="azar" ? DATOS.azar.has(di*FOTOS+k) : estado.valDias.has(di);
+    const item = {di,k,x:rasgos(dia,f,s),nivel:f.nivel,val:esVal};
+    (esVal?valid:entreno).push(item);
+  }));
+  const vecino = x => {
+    let mejor=null, dm=Infinity;
+    for (const t of entreno){
+      const a=x[0]-t.x[0], b=x[1]-t.x[1], c=(x[2]-t.x[2])*PESO_VERDOR;
+      const d=a*a+b*b+c*c; if (d<dm){dm=d; mejor=t;}
+    }
+    return mejor;
+  };
+  let ok=0;
+  for (const v of valid){ v.nn=vecino(v.x); v.pred=v.nn.nivel; v.ok=v.pred===v.nivel; if(v.ok) ok++; }
+  const nuevos=[]; let okN=0;
+  DATOS.dias.slice(DIAS).forEach((dia,di)=>dia.fotos.forEach((f,k)=>{
+    const x=rasgos(dia,f,s), nn=vecino(x), acierto=nn.nivel===f.nivel;
+    if(acierto) okN++; nuevos.push({di,k,x,ok:acierto});
+  }));
+  return { entreno, valid, nuevos,
+    aparente: valid.length? 100*ok/valid.length : 0,
+    real: 100*okN/nuevos.length };
+}
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+const estado = { modo:"azar", parecido:PARECIDO_INICIAL, valDias:new Set(VAL_INICIAL), paso:-1, hover:null, retoLogrado:false, aviso:null };
+let res = null;
+const mostrado = { aparente:0, real:0 };   // valores animados de los medidores
+const reducido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* =========================================================
+   CONSTRUCCIÓN DEL SVG
+   ========================================================= */
+const svg = document.getElementById("visual");
+function el(tag, attrs={}, padre=svg, texto){
+  if (typeof padre==="string"){ texto=padre; padre=svg; }
+  const e=document.createElementNS(NS,tag);
+  for (const k in attrs) e.setAttribute(k,attrs[k]);
+  if (texto!==undefined) e.textContent=texto;
+  padre.appendChild(e); return e;
+}
+const posFoto = (di,k)=>({ x: COL_X0+di*(COL_W+COL_GAP)+ (k%2? 34:12), y: PANEL_Y+20+Math.floor(k/2)*35 });
+
+// Barra de leyenda/estado superior
+const capTxt = el("text",{x:4,y:22,class:"t15"});
+el("rect",{x:666,y:6,width:150,height:24,rx:6,fill:"none",stroke:"var(--alerta)","stroke-width":2});
+el("text",{x:741,y:23,class:"t14","text-anchor":"middle",style:"fill:var(--alerta);font-weight:650"},"Ejemplo ilustrativo");
+
+// Columnas de días
+const capaDias = el("g");
+const capaLineas = el("g",{"pointer-events":"none"});
+const capaPuntos = el("g");
+const columnas=[];
+for (let di=0; di<DIAS; di++){
+  const x = COL_X0+di*(COL_W+COL_GAP), dia=DATOS.dias[di];
+  const g = el("g",{class:"dia",tabindex:0,role:"button"},capaDias);
+  el("rect",{x,y:34,width:COL_W,height:PANEL_H+28+36,fill:"transparent"},g); // zona de clic amplia
+  const etiqueta = el("text",{x:x+COL_W/2,y:54,class:"t14 mono","text-anchor":"middle"},g,`D${di+1}`);
+  const panel = el("rect",{class:"panel",x,y:PANEL_Y,width:COL_W,height:PANEL_H,rx:8,fill:colorTinte(dia.L,dia.H),"fill-opacity":.18,stroke:"var(--linea)","stroke-width":2},g);
+  const nivel = el("text",{x:x+COL_W/2,y:PANEL_Y+PANEL_H+20,class:"t14 suave","text-anchor":"middle"},g,NIVELES[dia.c]);
+  const marcaVal = el("text",{x:x+COL_W/2,y:PANEL_Y+PANEL_H+38,class:"t14","text-anchor":"middle",style:"fill:var(--primario);font-weight:650"},g,"");
+  g.addEventListener("click",()=>alternarDia(di));
+  g.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); alternarDia(di);} });
+  columnas.push({g,panel,etiqueta,marcaVal});
+}
+
+// Puntos (fotos)
+const puntos=[];
+for (let di=0; di<DIAS; di++) for (let k=0;k<FOTOS;k++){
+  const p=posFoto(di,k);
+  const g=el("g",{class:"punto"},capaPuntos);
+  const c=el("circle",{cx:p.x,cy:p.y,r:9},g);
+  const x1=el("line",{x1:p.x-6,y1:p.y-6,x2:p.x+6,y2:p.y+6,stroke:"var(--error)","stroke-width":3,"stroke-linecap":"round"},g);
+  const x2=el("line",{x1:p.x+6,y1:p.y-6,x2:p.x-6,y2:p.y+6,stroke:"var(--error)","stroke-width":3,"stroke-linecap":"round"},g);
+  const hit=el("circle",{cx:p.x,cy:p.y,r:12,fill:"transparent"},g);
+  hit.addEventListener("pointerenter",()=>{estado.hover={di,k};pintar();});
+  hit.addEventListener("pointerleave",()=>{estado.hover=null;pintar();});
+  hit.addEventListener("pointerdown",e=>{e.stopPropagation();estado.hover={di,k};pintar();});
+  hit.addEventListener("click",e=>e.stopPropagation());
+  puntos.push({di,k,c,x1,x2});
+}
+
+// Días nuevos (prueba real)
+el("line",{x1:4,y1:258,x2:578,y2:258,stroke:"var(--linea)","stroke-width":2});
+el("text",{x:4,y:278,class:"t14 suave"},svg,`Prueba real: ${DIAS_NUEVOS} días nuevos que el modelo nunca vio`);
+const puntosNuevos=[];
+for (let d=0; d<DIAS_NUEVOS; d++){
+  const x=COL_X0+d*(NUEVO_W+NUEVO_GAP), dia=DATOS.dias[DIAS+d];
+  el("rect",{x,y:NUEVO_Y+4,width:NUEVO_W,height:70,rx:8,fill:colorTinte(dia.L,dia.H),"fill-opacity":.18,stroke:"var(--linea)","stroke-width":2});
+  for (let k=0;k<FOTOS;k++){
+    const cx=x+(k%2?24:10), cy=NUEVO_Y+16+Math.floor(k/2)*15;
+    const c=el("circle",{cx,cy,r:5});
+    const l1=el("line",{x1:cx-4,y1:cy-4,x2:cx+4,y2:cy+4,stroke:"var(--error)","stroke-width":2.5,"stroke-linecap":"round"});
+    const l2=el("line",{x1:cx+4,y1:cy-4,x2:cx-4,y2:cy+4,stroke:"var(--error)","stroke-width":2.5,"stroke-linecap":"round"});
+    puntosNuevos.push({d,k,c,l1,l2});
+  }
+}
+
+// Leyenda
+const ly=392;
+el("circle",{cx:14,cy:ly,r:8,fill:"var(--tinta-suave)"});
+el("text",{x:30,y:ly+5,class:"t14"},svg,"Entrenamiento (relleno)");
+el("circle",{cx:214,cy:ly,r:7,fill:"none",stroke:"var(--tinta-suave)","stroke-width":3.5});
+el("text",{x:230,y:ly+5,class:"t14"},svg,"Validación (borde)");
+el("line",{x1:388,y1:ly-6,x2:400,y2:ly+6,stroke:"var(--error)","stroke-width":3,"stroke-linecap":"round"});
+el("line",{x1:400,y1:ly-6,x2:388,y2:ly+6,stroke:"var(--error)","stroke-width":3,"stroke-linecap":"round"});
+el("text",{x:410,y:ly+5,class:"t14"},svg,"= el modelo falló");
+el("text",{x:4,y:ly+30,class:"t14 suave"},svg,"Color = tinte de la foto (luz, humedad). Bajo cada día: su nivel típico de biomasa.");
+el("text",{x:4,y:ly+52,class:"t14 suave"},svg,"Tarea: clasificar biomasa en baja, media o alta. Versión simplificada: el modelo copia");
+el("text",{x:4,y:ly+70,class:"t14 suave"},svg,"la etiqueta de la foto de entrenamiento más parecida (vecino más cercano), en vivo.");
+
+// Medidores
+const mx1=MED_X+14, mx2=MED_X+120;
+el("text",{x:MED_X+102,y:54,class:"t14 suave","text-anchor":"middle"},svg,"Acierto (%)");
+el("line",{x1:MED_X,y1:BAR_Y+BAR_H,x2:820,y2:BAR_Y+BAR_H,stroke:"var(--linea)","stroke-width":2});
+[mx1,mx2].forEach(x=>el("rect",{x,y:BAR_Y,width:BAR_W,height:BAR_H,rx:8,fill:"none",stroke:"var(--linea)","stroke-width":2}));
+const yAzar = BAR_Y+BAR_H*(1-1/3);
+const barA=el("rect",{x:mx1,width:BAR_W,rx:8,fill:"var(--primario)"});
+const barR=el("rect",{x:mx2,width:BAR_W,rx:8,fill:"var(--tinta)"});
+// Línea de "adivinar" (1 de 3 niveles) dibujada sobre las barras
+el("line",{x1:MED_X,y1:yAzar,x2:820,y2:yAzar,stroke:"var(--alerta)","stroke-width":2,"stroke-dasharray":"5 4"});
+el("rect",{x:mx1+BAR_W+2,y:yAzar-10,width:mx2-mx1-BAR_W-4,height:20,fill:"var(--fondo)"});
+el("text",{x:(mx1+BAR_W+mx2)/2,y:yAzar+5,class:"t14","text-anchor":"middle",style:"fill:var(--alerta)"},"azar");
+const numA=el("text",{x:mx1+BAR_W/2,class:"mono","text-anchor":"middle",style:"font-size:22px;font-weight:650"});
+const numR=el("text",{x:mx2+BAR_W/2,class:"mono","text-anchor":"middle",style:"font-size:22px;font-weight:650"});
+el("text",{x:mx1+BAR_W/2,y:BAR_Y+BAR_H+22,class:"t14","text-anchor":"middle",style:"font-weight:650"},svg,"Nota aparente");
+el("text",{x:mx1+BAR_W/2,y:BAR_Y+BAR_H+40,class:"t14 suave","text-anchor":"middle"},svg,"(validación)");
+el("text",{x:mx2+BAR_W/2,y:BAR_Y+BAR_H+22,class:"t14","text-anchor":"middle",style:"font-weight:650"},svg,"Nota real");
+el("text",{x:mx2+BAR_W/2,y:BAR_Y+BAR_H+40,class:"t14 suave","text-anchor":"middle"},svg,"(día nuevo)");
+// Fórmula única, con números en vivo
+el("rect",{x:MED_X,y:388,width:208,height:84,rx:8,fill:"none",stroke:"var(--linea)","stroke-width":2});
+el("text",{x:MED_X+104,y:412,class:"t14 mono","text-anchor":"middle"},svg,"brecha = aparente − real");
+const formula=el("text",{x:MED_X+104,y:438,class:"mono","text-anchor":"middle",style:"font-size:18px;font-weight:650"});
+const veredicto=el("text",{x:MED_X+104,y:461,class:"t14","text-anchor":"middle",style:"font-weight:650"});
+
+/* =========================================================
+   INTERACCIÓN
+   ========================================================= */
+const $=id=>document.getElementById(id);
+function alternarDia(di){
+  estado.paso=-1;
+  if (estado.modo==="azar"){ estado.modo="dias"; estado.aviso="Cambiado a reparto por días completos."; }
+  const v=estado.valDias;
+  if (v.has(di)){ if (v.size>1) v.delete(di); } else if (v.size<DIAS-1) v.add(di);
+  actualizar();
+}
+function ponerModo(m){ estado.modo=m; estado.paso=-1; estado.aviso=null; actualizar(); }
+$("bAzar").onclick=()=>ponerModo("azar");
+$("bDias").onclick=()=>ponerModo("dias");
+document.querySelector(".segmento").addEventListener("keydown",e=>{
+  if (e.key==="ArrowLeft"||e.key==="ArrowRight"){ e.preventDefault(); const m=estado.modo==="azar"?"dias":"azar"; ponerModo(m); $(m==="azar"?"bAzar":"bDias").focus(); }
+});
+$("sParecido").addEventListener("input",e=>{ estado.parecido=+e.target.value; estado.paso=-1; estado.aviso=null; actualizar(); });
+$("bPaso").onclick=()=>{
+  estado.paso = estado.paso+1 >= PASOS.length ? -1 : estado.paso+1;
+  estado.aviso=null;
+  if (estado.paso>=0){ const p=PASOS[estado.paso]; estado.modo=p.modo; estado.parecido=p.parecido; $("sParecido").value=p.parecido; }
+  actualizar();
+};
+$("bReiniciar").onclick=()=>{
+  Object.assign(estado,{modo:"azar",parecido:PARECIDO_INICIAL,valDias:new Set(VAL_INICIAL),paso:-1,hover:null,retoLogrado:false,aviso:null});
+  $("sParecido").value=PARECIDO_INICIAL; actualizar();
+};
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&estado.paso>=0){ estado.paso=-1; actualizar(); } });
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+function textoObservar(gap){
+  const g=Math.abs(gap);
+  if (estado.modo==="azar"){
+    if (estado.parecido<30) return "Fotos poco parecidas: no hay gemelas del mismo día, y las dos notas quedan cerca.";
+    if (gap>=15) return "Nota inflada: cada foto de validación tiene una gemela de su día en entrenamiento.";
+    return "Sube el parecido: la nota aparente empezará a separarse de la real.";
+  }
+  if (estado.valDias.size<=1) return "Con un solo día en validación la nota es ruidosa: pasa más días.";
+  if (g<5) return "Validación honesta: la nota aparente ya anticipa cómo le irá en un día nuevo.";
+  return "Más cerca que al azar. Cambia qué días validan para afinar la medida.";
+}
+
+function actualizar(){
+  res = calcular(estado);
+  // Controles
+  $("bAzar").setAttribute("aria-checked",estado.modo==="azar");
+  $("bDias").setAttribute("aria-checked",estado.modo==="dias");
+  $("vReparto").textContent = estado.modo==="azar" ? "al azar" : "por días";
+  $("vParecido").textContent = estado.parecido+" %";
+  $("vVal").textContent = estado.modo==="azar" ? `${N_AZAR} de 96 fotos` : `${estado.valDias.size} días · ${estado.valDias.size*FOTOS} fotos`;
+  $("bPaso").textContent = estado.paso<0 ? "Paso a paso ▶" : (estado.paso<PASOS.length-1 ? `Paso ${estado.paso+2} de 4 ▶` : "Terminar ■");
+  // Reto
+  const gap = res.aparente-res.real;
+  if (estado.parecido>=60 && Math.abs(gap)<5) estado.retoLogrado=true;
+  $("reto").classList.toggle("ok",estado.retoLogrado);
+  $("retoEstado").textContent = estado.retoLogrado ? "¡Logrado! Notas a menos de 5 puntos." : "Pendiente";
+  $("observar").textContent = textoObservar(gap);
+  pintar();
+  animarMedidores();
+}
+
+function pintar(){
+  if (!res) return;
+  const s=estado.parecido/100, paso=estado.paso>=0?PASOS[estado.paso]:null;
+  const valPorId=new Map(res.valid.map(v=>[v.di*FOTOS+v.k,v]));
+  // Columnas
+  columnas.forEach((c,di)=>{
+    const enVal = estado.modo==="dias" && estado.valDias.has(di);
+    const resaltada = paso && paso.resaltar===di;
+    c.panel.setAttribute("stroke", resaltada?"var(--primario)": enVal?"var(--primario)":"var(--linea)");
+    c.panel.setAttribute("stroke-width", resaltada?4:2);
+    c.panel.setAttribute("stroke-dasharray", enVal?"6 4":"");
+    c.marcaVal.textContent = enVal ? "Val." : "";
+    c.g.setAttribute("aria-pressed", enVal);
+    c.g.setAttribute("aria-label", `Día ${di+1}: ${enVal?"en validación":"en entrenamiento"}. Pulsa para cambiar.`);
+  });
+  // Puntos
+  puntos.forEach(p=>{
+    const dia=DATOS.dias[p.di], f=dia.fotos[p.k], x=rasgos(dia,f,s), col=colorTinte(x[0],x[1]);
+    const v=valPorId.get(p.di*FOTOS+p.k);
+    const atenuar = paso && paso.resaltar!==undefined && paso.resaltar!==p.di;
+    p.c.setAttribute("opacity", atenuar?.3:1);
+    if (v){ p.c.setAttribute("fill","var(--superficie)"); p.c.setAttribute("stroke",col); p.c.setAttribute("stroke-width",4.5); p.c.setAttribute("r",8); }
+    else { p.c.setAttribute("fill",col); p.c.setAttribute("stroke","var(--fondo)"); p.c.setAttribute("stroke-width",1.5); p.c.setAttribute("r",9); }
+    const falla = v && !v.ok;
+    p.x1.style.display=p.x2.style.display = falla?"":"none";
+  });
+  // Días nuevos
+  puntosNuevos.forEach((p,i)=>{
+    const r=res.nuevos[i], col=colorTinte(r.x[0],r.x[1]);
+    p.c.setAttribute("fill",col);
+    p.l1.style.display=p.l2.style.display = r.ok?"none":"";
+  });
+  // Líneas al vecino más cercano
+  while (capaLineas.firstChild) capaLineas.removeChild(capaLineas.firstChild);
+  const dibujar = v => {
+    const a=posFoto(v.di,v.k), b=posFoto(v.nn.di,v.nn.k), mismo=v.di===v.nn.di;
+    el("line",{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:mismo?"var(--alerta)":"var(--tinta-suave)","stroke-width":mismo?3:2,"stroke-dasharray":mismo?"":"5 4","stroke-linecap":"round"},capaLineas);
+    el("circle",{cx:b.x,cy:b.y,r:12,fill:"none",stroke:mismo?"var(--alerta)":"var(--tinta-suave)","stroke-width":2},capaLineas);
+  };
+  if (paso && paso.lineas) res.valid.forEach(dibujar);
+  let cap;
+  const h=estado.hover;
+  if (h){
+    const v=valPorId.get(h.di*FOTOS+h.k), f=DATOS.dias[h.di].fotos[h.k];
+    if (v){ dibujar(v);
+      cap=`D${h.di+1}·foto ${h.k+1} copia a D${v.nn.di+1}·foto ${v.nn.k+1}${v.di===v.nn.di?" (mismo día)":""}: dijo ${NIVELES[v.pred]}, era ${NIVELES[v.nivel]} ${v.ok?"✓":"✗"}`;
+    } else cap=`D${h.di+1}·foto ${h.k+1} (entrenamiento) · biomasa ${NIVELES[f.nivel]}. El modelo la memoriza.`;
+  } else if (paso) cap=paso.txt;
+  else if (estado.aviso) cap=estado.aviso;
+  else cap="Pasa el cursor por una foto de validación (borde) para ver a quién copia.";
+  capTxt.textContent=cap;
+  const sameDay = res.valid.filter(v=>v.nn.di===v.di).length;
+  if (paso && paso.lineas && !h) capTxt.textContent = `Paso 3 de 4 · ${sameDay} de ${res.valid.length} fotos copian a una de su mismo día.`;
+}
+
+let animId=null;
+function animarMedidores(){
+  const desde={...mostrado}, hasta={aparente:res.aparente, real:res.real}, t0=performance.now(), dur=reducido?0:450;
+  cancelAnimationFrame(animId);
+  const paso=t=>{
+    const u = dur? Math.min(1,(t-t0)/dur) : 1, e=1-Math.pow(1-u,3);
+    mostrado.aparente=desde.aparente+(hasta.aparente-desde.aparente)*e;
+    mostrado.real=desde.real+(hasta.real-desde.real)*e;
+    dibujarMedidores();
+    if (u<1) animId=requestAnimationFrame(paso);
+  };
+  animId=requestAnimationFrame(paso);
+}
+function dibujarMedidores(){
+  const set=(bar,num,val)=>{ const h=BAR_H*val/100; bar.setAttribute("y",BAR_Y+BAR_H-h); bar.setAttribute("height",Math.max(h,0)); num.setAttribute("y",BAR_Y+BAR_H-h-8); num.textContent=Math.round(val); };
+  set(barA,numA,mostrado.aparente); set(barR,numR,mostrado.real);
+  const a=Math.round(res.aparente), r=Math.round(res.real), g=a-r, ag=Math.abs(g);
+  formula.textContent=`${g} = ${a} − ${r}`;
+  const col = ag<5?"var(--positivo)": ag<15?"var(--alerta)":"var(--error)";
+  formula.style.fill=col; veredicto.style.fill=col;
+  veredicto.textContent = ag<5 ? "Medida honesta" : (g>0 ? "Nota inflada" : "Nota ruidosa");
+}
+
+/* =========================================================
+   ESCALADO DEL ESCENARIO (sin scroll en ningún tamaño)
+   ========================================================= */
+const escenario=$("escenario");
+function ajustar(){
+  const k=Math.min(innerWidth/1280, innerHeight/720);
+  escenario.style.transform=`translate(${(innerWidth-1280*k)/2}px,${(innerHeight-720*k)/2}px) scale(${k})`;
+}
+addEventListener("resize",ajustar);
+ajustar();
+actualizar();
+</script>
+
+</body></html>
