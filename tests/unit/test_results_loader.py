@@ -70,3 +70,32 @@ def test_valid_csvs_are_available_and_extract_metric_columns(tmp_path):
     assert result.available is True
     assert result.metric_columns == ["mae"]
     assert len(result.fold_results) == 4
+
+
+def test_optional_tables_missing_file_is_not_available(tmp_path):
+    from services.results_loader import load_cost_metrics, load_pairwise
+
+    assert load_pairwise(str(tmp_path / "missing.csv")).available is False
+    assert load_cost_metrics(str(tmp_path / "missing.csv")).available is False
+
+
+def test_real_optional_tables_are_available():
+    from services.results_loader import load_cost_metrics, load_pairwise
+
+    pairwise = load_pairwise()
+    cost = load_cost_metrics()
+
+    assert pairwise.available and len(pairwise.data) == 15
+    assert cost.available and len(cost.data) == 6
+
+
+def test_optional_table_missing_columns_is_not_available(tmp_path):
+    from services.results_loader import load_pairwise
+
+    csv = tmp_path / "pairwise.csv"
+    csv.write_text("architecture_a,architecture_b\na,b\n")
+
+    result = load_pairwise(str(csv))
+
+    assert result.available is False
+    assert "Faltan columnas" in result.reason

@@ -16,6 +16,26 @@ import streamlit as st
 FOLD_RESULTS_CSV_PATH = Path("data/fold_results.csv")
 STATISTICAL_COMPARISON_CSV_PATH = Path("data/statistical_comparison.csv")
 
+PAIRWISE_CSV_PATH = Path("data/pairwise_significance.csv")
+COST_METRICS_CSV_PATH = Path("data/cost_metrics.csv")
+
+_REQUIRED_PAIRWISE_COLUMNS = {
+    "architecture_a",
+    "architecture_b",
+    "p_raw",
+    "p_holm",
+    "is_significant",
+    "p_nemenyi",
+    "is_significant_nemenyi",
+}
+_REQUIRED_COST_COLUMNS = {
+    "architecture_id",
+    "train_total_min",
+    "train_relative_to_fastest",
+    "infer_median_ms",
+    "infer_relative_to_fastest",
+    "params_millions",
+}
 _REQUIRED_FOLD_COLUMNS = {
     "architecture_id",
     "family",
@@ -82,3 +102,36 @@ def load_results(
         statistical_comparison=stats_df,
         metric_columns=metric_columns,
     )
+
+
+@dataclass
+class OptionalTable:
+    available: bool
+    data: pd.DataFrame | None = None
+    reason: str | None = None
+
+
+def _load_optional_table(csv_path: str, required: set[str]) -> OptionalTable:
+    path = Path(csv_path)
+    if not path.exists():
+        return OptionalTable(available=False, reason=f"No se encontró {csv_path}.")
+    df = pd.read_csv(path)
+    missing = required - set(df.columns)
+    if missing:
+        return OptionalTable(
+            available=False,
+            reason=f"Faltan columnas requeridas en {csv_path}: {sorted(missing)}.",
+        )
+    return OptionalTable(available=True, data=df)
+
+
+@st.cache_data(show_spinner=False)
+def load_pairwise(csv_path: str = str(PAIRWISE_CSV_PATH)) -> OptionalTable:
+    """15 pares de arquitecturas: t pareado + Holm y chequeo Nemenyi (tabla 4 del paper)."""
+    return _load_optional_table(csv_path, _REQUIRED_PAIRWISE_COLUMNS)
+
+
+@st.cache_data(show_spinner=False)
+def load_cost_metrics(csv_path: str = str(COST_METRICS_CSV_PATH)) -> OptionalTable:
+    """Tiempo de entrenamiento e inferencia por arquitectura (tablas 5 y 6 del paper)."""
+    return _load_optional_table(csv_path, _REQUIRED_COST_COLUMNS)

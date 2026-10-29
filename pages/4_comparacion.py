@@ -1,14 +1,21 @@
 import streamlit as st
 
+from components.comparison_charts import architecture_colors
+from components.comparison_tabs import (
+    render_cost_tab,
+    render_significance_tab,
+    render_summary_tab,
+    render_target_tab,
+)
 from components.limitations_panel import (
     STATIC_QUALITATIVE_LIMITATIONS,
     build_fold_imbalance_limitation,
 )
 from components.limitations_panel import render as render_limitations
-from components.metric_chart import fold_comparison_bar, render
 from components.progress_indicator import render as render_progress
 from services.architecture_registry import load_architecture_registry
-from services.results_loader import load_results
+from services.comparison_stats import architecture_summary
+from services.results_loader import load_cost_metrics, load_pairwise, load_results
 
 render_progress(current_key="comparacion")
 
@@ -35,26 +42,21 @@ if not results.available or not architecture_result.available:
         f"simulados (Principio VI). Detalle técnico: {reasons}"
     )
 else:
-    st.subheader("Desempeño por arquitectura y fold")
-    metric = st.selectbox("Métrica a comparar", results.metric_columns)
-    render(
-        fold_comparison_bar(
-            results.fold_results,
-            architecture_col="architecture_id",
-            metric_col=metric,
-            fold_col="fold_number",
-            title=f"{metric} por arquitectura y fold",
-        )
-    )
+    labels = {a.architecture_id: a.variant_name for a in architecture_result.architectures}
+    colors = architecture_colors(list(labels))
+    order = architecture_summary(results.fold_results)["architecture_id"].tolist()
 
-    st.subheader("¿La diferencia es real o pudo ser casualidad?")
-    summary_row = results.statistical_comparison.iloc[0]
-    st.markdown(summary_row["plain_language_summary"])
-    st.caption(
-        f"Prueba estadística: {summary_row['test_name']} · "
-        f"p-value real: {summary_row['p_value']} · "
-        f"¿Significativo?: {'Sí' if summary_row['is_significant'] else 'No'}"
+    tab_summary, tab_targets, tab_stats, tab_cost = st.tabs(
+        ["📊 Desempeño", "🎯 Por variable", "🔬 ¿Es real la diferencia?", "⏱️ Costo"]
     )
+    with tab_summary:
+        render_summary_tab(results, colors)
+    with tab_targets:
+        render_target_tab(results, labels)
+    with tab_stats:
+        render_significance_tab(results, load_pairwise(), labels, order)
+    with tab_cost:
+        render_cost_tab(load_cost_metrics(), labels)
 
     best = next((a for a in architecture_result.architectures if a.is_best), None)
     worst = next((a for a in architecture_result.architectures if a.is_worst), None)

@@ -26,7 +26,7 @@ solo la imagen). Columnas:
 (`sample_id`, `image_path`, `Sampling_Date`, `State`, `Species`, `Pre_GSHH_NDVI`,
 `Height_Ave_cm`) como variable objetivo automáticamente.
 
-## `fold_results.csv` (pendiente)
+## `fold_results.csv`
 
 Una fila por combinación arquitectura × fold (30 filas esperadas: 6 arquitecturas ×
 5 folds). Columnas requeridas por `services/results_loader.py` y
@@ -41,7 +41,7 @@ Una fila por combinación arquitectura × fold (30 filas esperadas: 6 arquitectu
   `rmse` — nombre exacto TBD); cualquier columna que no sea una de las anteriores se
   trata automáticamente como columna de métrica.
 
-## `statistical_comparison.csv` (pendiente)
+## `statistical_comparison.csv`
 
 Una fila por comparación estadística reportada en el estudio. Columnas requeridas:
 
@@ -54,6 +54,35 @@ Una fila por comparación estadística reportada en el estudio. Columnas requeri
 - `best_architecture_id`, `worst_architecture_id` — `architecture_id` (coincidente
   con `fold_results.csv`) de mejor y peor desempeño; determinan los 2 checkpoints
   usados en la predicción en vivo (User Story 4).
+
+Metodología (igual que el paper): ANOVA de medidas repetidas (modelo como factor
+intra-sujeto, fold como sujeto) + t pareado con corrección de Holm; `p_value` es el
+p ajustado de mejor vs. peor. Columnas opcionales (`omnibus_*`, `robustness_*`,
+`n_pairs_*`) documentan el ómnibus y el chequeo Friedman + Nemenyi.
+
+## `pairwise_significance.csv`
+
+Los 15 pares de arquitecturas: `architecture_a`, `architecture_b`, `t_statistic`,
+`p_raw`, `p_holm`, `is_significant` (α=0.05, t pareado + Holm), `p_nemenyi`,
+`is_significant_nemenyi`. Equivale a `table4_pairwise_significance` del paper.
+
+## `cost_metrics.csv`
+
+Una fila por arquitectura: tiempo de entrenamiento total/medio/SD por fold (min, de
+Google Colab; solo el factor relativo `train_relative_to_fastest` es comparable) y
+latencia de inferencia en CPU (mediana/media/SD en ms, `infer_relative_to_fastest`),
+más `params_millions`. Equivale a `table5`/`table6` del paper.
+
+## Regenerar los CSV de resultados
+
+`statistical_comparison.csv`, `pairwise_significance.csv` y `cost_metrics.csv` se
+generan con `resultados/build_app_data.py` (reutiliza el pipeline estadístico de
+`resultados/build_paper_figures.py`), no se editan a mano.
+
+## Convención de la desviación estándar
+
+La app muestra la SD entre folds como **poblacional (ddof=0)**, igual que las tablas
+del paper (p. ej. ConvNeXt-Tiny 0.099; con ddof=1 sería 0.110).
 
 ## `dataset_thumbnails/`
 
